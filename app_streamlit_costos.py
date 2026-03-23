@@ -439,62 +439,62 @@ if archivo is not None:
         # =========================================
         # RESUMEN POR TIPO DE UNIDAD
         # =========================================
-st.subheader("Resumen por tipo de unidad")
-resumen_tipo = df_filtrado.groupby("tipo_unidad", dropna=False).agg(
-    Cantidad=("tipo_unidad", "size"),
-    Costo_servicio=("Costo_servicio", "sum"),
-    sobrecosto_total_espera=("sobrecosto_total_espera", "sum")
-).reset_index()
+        st.subheader("Resumen por tipo de unidad")
+        resumen_tipo = df_filtrado.groupby("tipo_unidad", dropna=False).agg(
+            Cantidad=("tipo_unidad", "size"),
+            Costo_servicio=("Costo_servicio", "sum"),
+            sobrecosto_total_espera=("sobrecosto_total_espera", "sum")
+        ).reset_index()
 
-fila_total_tipo = {
-    "tipo_unidad": "TOTAL",
-    "Cantidad": resumen_tipo["Cantidad"].sum(),
-    "Costo_servicio": resumen_tipo["Costo_servicio"].sum(),
-    "sobrecosto_total_espera": resumen_tipo["sobrecosto_total_espera"].sum()
-}
+        fila_total_tipo = {
+            "tipo_unidad": "TOTAL",
+            "Cantidad": resumen_tipo["Cantidad"].sum(),
+            "Costo_servicio": resumen_tipo["Costo_servicio"].sum(),
+            "sobrecosto_total_espera": resumen_tipo["sobrecosto_total_espera"].sum()
+        }
 
-resumen_tipo = pd.concat(
-    [resumen_tipo, pd.DataFrame([fila_total_tipo])],
-    ignore_index=True
-)
+        resumen_tipo = pd.concat(
+            [resumen_tipo, pd.DataFrame([fila_total_tipo])],
+            ignore_index=True
+        )
 
-resumen_tipo_formateado = resumen_tipo.copy()
-for col in ["Cantidad", "Costo_servicio", "sobrecosto_total_espera"]:
-    resumen_tipo_formateado[col] = resumen_tipo_formateado[col].apply(
-        lambda x: f"{x:,.0f}" if pd.notna(x) else ""
-    )
+        resumen_tipo_formateado = resumen_tipo.copy()
+        for col in ["Cantidad", "Costo_servicio", "sobrecosto_total_espera"]:
+            resumen_tipo_formateado[col] = resumen_tipo_formateado[col].apply(
+                lambda x: f"{x:,.0f}" if pd.notna(x) else ""
+            )
 
-st.dataframe(resumen_tipo_formateado, use_container_width=True)
+        st.dataframe(resumen_tipo_formateado, use_container_width=True)
 
         # =========================================
         # RESUMEN POR SEDE
         # =========================================
-       st.subheader("Resumen por sede")
-resumen_sede = df_filtrado.groupby("sede", dropna=False).agg(
-    Cantidad=("sede", "size"),
-    Costo_servicio=("Costo_servicio", "sum"),
-    sobrecosto_total_espera=("sobrecosto_total_espera", "sum")
-).reset_index()
+        st.subheader("Resumen por sede")
+        resumen_sede = df_filtrado.groupby("sede", dropna=False).agg(
+            Cantidad=("sede", "size"),
+            Costo_servicio=("Costo_servicio", "sum"),
+            sobrecosto_total_espera=("sobrecosto_total_espera", "sum")
+        ).reset_index()
 
-fila_total_sede = {
-    "sede": "TOTAL",
-    "Cantidad": resumen_sede["Cantidad"].sum(),
-    "Costo_servicio": resumen_sede["Costo_servicio"].sum(),
-    "sobrecosto_total_espera": resumen_sede["sobrecosto_total_espera"].sum()
-}
+        fila_total_sede = {
+            "sede": "TOTAL",
+            "Cantidad": resumen_sede["Cantidad"].sum(),
+            "Costo_servicio": resumen_sede["Costo_servicio"].sum(),
+            "sobrecosto_total_espera": resumen_sede["sobrecosto_total_espera"].sum()
+        }
 
-resumen_sede = pd.concat(
-    [resumen_sede, pd.DataFrame([fila_total_sede])],
-    ignore_index=True
-)
+        resumen_sede = pd.concat(
+            [resumen_sede, pd.DataFrame([fila_total_sede])],
+            ignore_index=True
+        )
 
-resumen_sede_formateado = resumen_sede.copy()
-for col in ["Cantidad", "Costo_servicio", "sobrecosto_total_espera"]:
-    resumen_sede_formateado[col] = resumen_sede_formateado[col].apply(
-        lambda x: f"{x:,.0f}" if pd.notna(x) else ""
-    )
+        resumen_sede_formateado = resumen_sede.copy()
+        for col in ["Cantidad", "Costo_servicio", "sobrecosto_total_espera"]:
+            resumen_sede_formateado[col] = resumen_sede_formateado[col].apply(
+                lambda x: f"{x:,.0f}" if pd.notna(x) else ""
+            )
 
-st.dataframe(resumen_sede_formateado, use_container_width=True)
+        st.dataframe(resumen_sede_formateado, use_container_width=True)
 
         # =========================================
         # DESCARGA
