@@ -388,13 +388,20 @@ if archivo is not None:
 
         st.success("Archivo procesado correctamente.")
 
-        # 🔥 AQUÍ VAN LOS FILTROS
+        # =========================================
+        # FILTROS TIPO POWER BI
+        # =========================================
         st.sidebar.header("Filtros")
+
+        estados_disponibles = sorted(df_resultado["estado"].dropna().unique())
+        estados_default = [x for x in ["POR VALIDAR", "VALIDADO"] if x in estados_disponibles]
+        if not estados_default:
+            estados_default = estados_disponibles
 
         estados = st.sidebar.multiselect(
             "Estado",
-            options=sorted(df_resultado["estado"].dropna().unique()),
-            default=["POR VALIDAR", "VALIDADO"]
+            options=estados_disponibles,
+            default=estados_default
         )
 
         sedes = st.sidebar.multiselect(
@@ -415,20 +422,80 @@ if archivo is not None:
             (df_resultado["tipo_unidad"].isin(tipos))
         ].copy()
 
-        # 🔥 MÉTRICAS
+        # =========================================
+        # MÉTRICAS
+        # =========================================
         c1, c2, c3 = st.columns(3)
         c1.metric("Registros", len(df_filtrado))
         c2.metric("Costo servicio total", f"{df_filtrado['Costo_servicio'].sum():,.2f}")
         c3.metric("Sobrecosto total espera", f"{df_filtrado['sobrecosto_total_espera'].sum():,.2f}")
 
-        # 🔥 RESTO DE TU CÓDIGO...
+        # =========================================
+        # VISTA PREVIA
+        # =========================================
         st.subheader("Vista previa")
         st.dataframe(df_filtrado.head(20), use_container_width=True)
 
-        # ...resúmenes, etc
+        # =========================================
+        # RESUMEN POR TIPO DE UNIDAD
+        # =========================================
+        st.subheader("Resumen por tipo de unidad")
+        resumen_tipo = df_filtrado.groupby("tipo_unidad", dropna=False).agg({
+            "Costo_servicio": "sum",
+            "sobrecosto_total_espera": "sum"
+        }).reset_index()
 
+        fila_total_tipo = {
+            "tipo_unidad": "TOTAL",
+            "Costo_servicio": resumen_tipo["Costo_servicio"].sum(),
+            "sobrecosto_total_espera": resumen_tipo["sobrecosto_total_espera"].sum()
+        }
+
+        resumen_tipo = pd.concat(
+            [resumen_tipo, pd.DataFrame([fila_total_tipo])],
+            ignore_index=True
+        )
+
+        resumen_tipo_formateado = resumen_tipo.copy()
+        for col in ["Costo_servicio", "sobrecosto_total_espera"]:
+            resumen_tipo_formateado[col] = resumen_tipo_formateado[col].apply(
+                lambda x: f"{x:,.0f}" if pd.notna(x) else ""
+            )
+
+        st.dataframe(resumen_tipo_formateado, use_container_width=True)
+
+        # =========================================
+        # RESUMEN POR SEDE
+        # =========================================
+        st.subheader("Resumen por sede")
+        resumen_sede = df_filtrado.groupby("sede", dropna=False).agg({
+            "Costo_servicio": "sum",
+            "sobrecosto_total_espera": "sum"
+        }).reset_index()
+
+        fila_total_sede = {
+            "sede": "TOTAL",
+            "Costo_servicio": resumen_sede["Costo_servicio"].sum(),
+            "sobrecosto_total_espera": resumen_sede["sobrecosto_total_espera"].sum()
+        }
+
+        resumen_sede = pd.concat(
+            [resumen_sede, pd.DataFrame([fila_total_sede])],
+            ignore_index=True
+        )
+
+        resumen_sede_formateado = resumen_sede.copy()
+        for col in ["Costo_servicio", "sobrecosto_total_espera"]:
+            resumen_sede_formateado[col] = resumen_sede_formateado[col].apply(
+                lambda x: f"{x:,.0f}" if pd.notna(x) else ""
+            )
+
+        st.dataframe(resumen_sede_formateado, use_container_width=True)
+
+        # =========================================
+        # DESCARGA
+        # =========================================
         excel_bytes = exportar_excel(df_resultado)
-
         st.download_button(
             "Descargar resultado",
             data=excel_bytes,
