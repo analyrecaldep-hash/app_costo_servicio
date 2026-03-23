@@ -495,7 +495,61 @@ if archivo is not None:
             )
 
         st.dataframe(resumen_sede_formateado, use_container_width=True)
+# =========================================
+# TABLA CRUZADA (TIPO POWER BI)
+# =========================================
+st.subheader("Tabla cruzada por tipo y sede")
 
+cantidad = pd.pivot_table(
+    df_filtrado,
+    index="tipo_unidad",
+    columns="sede",
+    values="Costo_servicio",
+    aggfunc="count",
+    fill_value=0
+)
+
+tarifa = pd.pivot_table(
+    df_filtrado,
+    index="tipo_unidad",
+    columns="sede",
+    values="Costo_servicio",
+    aggfunc="sum",
+    fill_value=0
+)
+
+partes = []
+for sede in cantidad.columns:
+    temp = pd.DataFrame({
+        (sede, "Cantidad"): cantidad[sede],
+        (sede, "Tarifa Base."): tarifa[sede]
+    })
+    partes.append(temp)
+
+tabla_cruzada = pd.concat(partes, axis=1)
+
+# Totales por fila
+tabla_cruzada[("Total", "Cantidad")] = cantidad.sum(axis=1)
+tabla_cruzada[("Total", "Tarifa Base.")] = tarifa.sum(axis=1)
+
+# Total general
+tabla_cruzada.loc["Total general"] = tabla_cruzada.sum()
+
+tabla_cruzada = tabla_cruzada.reset_index().rename(columns={"tipo_unidad": "Etiquetas de fila"})
+
+# Formateo
+tabla_cruzada_formateada = tabla_cruzada.copy()
+
+for col in tabla_cruzada_formateada.columns:
+    if col == "Etiquetas de fila":
+        continue
+    if isinstance(col, tuple):
+        if col[1] == "Cantidad":
+            tabla_cruzada_formateada[col] = tabla_cruzada_formateada[col].apply(lambda x: f"{x:,.0f}")
+        elif col[1] == "Tarifa Base.":
+            tabla_cruzada_formateada[col] = tabla_cruzada_formateada[col].apply(lambda x: f"S/ {x:,.2f}")
+
+st.dataframe(tabla_cruzada_formateada, use_container_width=True)
         # =========================================
         # DESCARGA
         # =========================================
