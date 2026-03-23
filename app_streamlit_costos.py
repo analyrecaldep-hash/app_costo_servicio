@@ -397,40 +397,50 @@ if archivo is not None:
         st.dataframe(df_resultado.head(20), use_container_width=True)
 
         st.subheader("Resumen por tipo de unidad")
-resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg({
-    "Costo_servicio": "sum",
-    "sobrecosto_total_espera": "sum"
-}).reset_index()
+        resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg({
+            "Costo_servicio": "sum",
+            "sobrecosto_total_espera": "sum"
+        }).reset_index()
 
-# 🔥 Agregar fila TOTAL
-totales_tipo = resumen_tipo.select_dtypes(include='number').sum()
-totales_tipo["tipo_unidad"] = "TOTAL"
+        fila_total_tipo = {
+            "tipo_unidad": "TOTAL",
+            "Costo_servicio": resumen_tipo["Costo_servicio"].sum(),
+            "sobrecosto_total_espera": resumen_tipo["sobrecosto_total_espera"].sum()
+        }
 
-resumen_tipo = pd.concat([resumen_tipo, pd.DataFrame([totales_tipo])], ignore_index=True)
+        resumen_tipo = pd.concat(
+            [resumen_tipo, pd.DataFrame([fila_total_tipo])],
+            ignore_index=True
+        )
 
-# 🔥 Formatear con comas
-resumen_tipo_formateado = resumen_tipo.copy()
-for col in resumen_tipo_formateado.select_dtypes(include='number').columns:
-    resumen_tipo_formateado[col] = resumen_tipo_formateado[col].apply(lambda x: f"{x:,.0f}")
-    st.dataframe(resumen_tipo_formateado, use_container_width=True)
+        resumen_tipo_formateado = resumen_tipo.copy()
+        for col in ["Costo_servicio", "sobrecosto_total_espera"]:
+            resumen_tipo_formateado[col] = resumen_tipo_formateado[col].apply(lambda x: f"{x:,.0f}")
+
+        st.dataframe(resumen_tipo_formateado, use_container_width=True)
 
         st.subheader("Resumen por sede")
         resumen_sede = df_resultado.groupby("sede", dropna=False).agg({
-    "Costo_servicio": "sum",
-    "sobrecosto_total_espera": "sum"
-}).reset_index()
+            "Costo_servicio": "sum",
+            "sobrecosto_total_espera": "sum"
+        }).reset_index()
 
-# 🔥 Agregar TOTAL
-totales_sede = resumen_sede.select_dtypes(include='number').sum()
-totales_sede["sede"] = "TOTAL"
+        fila_total_sede = {
+            "sede": "TOTAL",
+            "Costo_servicio": resumen_sede["Costo_servicio"].sum(),
+            "sobrecosto_total_espera": resumen_sede["sobrecosto_total_espera"].sum()
+        }
 
-resumen_sede = pd.concat([resumen_sede, pd.DataFrame([totales_sede])], ignore_index=True)
+        resumen_sede = pd.concat(
+            [resumen_sede, pd.DataFrame([fila_total_sede])],
+            ignore_index=True
+        )
 
-# 🔥 Formatear
-resumen_sede_formateado = resumen_sede.copy()
-for col in resumen_sede_formateado.select_dtypes(include='number').columns:
-    resumen_sede_formateado[col] = resumen_sede_formateado[col].apply(lambda x: f"{x:,.0f}")
-   st.dataframe(resumen_sede_formateado, use_container_width=True)
+        resumen_sede_formateado = resumen_sede.copy()
+        for col in ["Costo_servicio", "sobrecosto_total_espera"]:
+            resumen_sede_formateado[col] = resumen_sede_formateado[col].apply(lambda x: f"{x:,.0f}")
+
+        st.dataframe(resumen_sede_formateado, use_container_width=True)
 
         excel_bytes = exportar_excel(df_resultado)
         st.download_button(
