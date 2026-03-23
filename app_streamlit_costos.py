@@ -533,7 +533,7 @@ if archivo is not None:
 
         tabla_cruzada.loc["Total general"] = tabla_cruzada.sum()
 
-        tabla_cruzada = tabla_cruzada.reset_index().rename(columns={"tipo_unidad": "Etiquetas de fila"})
+        tabla_cruzada = tabla_cruzada.reset_index().rename(columns={"tipo_unidad": "Tipo_unidad"})
 
         st.dataframe(tabla_cruzada, use_container_width=True)
         # =========================================
