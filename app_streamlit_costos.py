@@ -387,20 +387,47 @@ if archivo is not None:
         df_resultado = procesar_archivo(df_base)
 
         st.success("Archivo procesado correctamente.")
+# =========================================
+# FILTROS TIPO POWER BI
+# =========================================
+st.sidebar.header("Filtros")
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Registros", len(df_resultado))
-        c2.metric("Costo servicio total", f"{df_resultado['Costo_servicio'].sum():,.2f}")
-        c3.metric("Sobrecosto total espera", f"{df_resultado['sobrecosto_total_espera'].sum():,.2f}")
+estados = st.sidebar.multiselect(
+    "Estado",
+    options=sorted(df_resultado["estado"].dropna().unique()),
+    default=["POR VALIDAR", "VALIDADO"]
+)
+
+sedes = st.sidebar.multiselect(
+    "Sede",
+    options=sorted(df_resultado["sede"].dropna().unique()),
+    default=sorted(df_resultado["sede"].dropna().unique())
+)
+
+tipos = st.sidebar.multiselect(
+    "Tipo unidad",
+    options=sorted(df_resultado["tipo_unidad"].dropna().unique()),
+    default=sorted(df_resultado["tipo_unidad"].dropna().unique())
+)
+
+df_filtrado = df_resultado[
+    (df_resultado["estado"].isin(estados)) &
+    (df_resultado["sede"].isin(sedes)) &
+    (df_resultado["tipo_unidad"].isin(tipos))
+].copy()
+       c1, c2, c3 = st.columns(3)
+c1.metric("Registros", len(df_filtrado))
+c2.metric("Costo servicio total", f"{df_filtrado['Costo_servicio'].sum():,.2f}")
+c3.metric("Sobrecosto total espera", f"{df_filtrado['sobrecosto_total_espera'].sum():,.2f}")
 
         st.subheader("Vista previa")
-        st.dataframe(df_resultado.head(20), use_container_width=True)
+       st.dataframe(df_filtrado.head(20), use_container_width=True)
 
         st.subheader("Resumen por tipo de unidad")
-        resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg({
-            "Costo_servicio": "sum",
-            "sobrecosto_total_espera": "sum"
-        }).reset_index()
+resumen_tipo = df_filtrado.groupby("tipo_unidad", dropna=False).agg({
+    "Costo_servicio": "sum",
+    "sobrecosto_total_espera": "sum"
+}).reset_index()
 
         fila_total_tipo = {
             "tipo_unidad": "TOTAL",
@@ -420,10 +447,10 @@ if archivo is not None:
         st.dataframe(resumen_tipo_formateado, use_container_width=True)
 
         st.subheader("Resumen por sede")
-        resumen_sede = df_resultado.groupby("sede", dropna=False).agg({
-            "Costo_servicio": "sum",
-            "sobrecosto_total_espera": "sum"
-        }).reset_index()
+resumen_sede = df_filtrado.groupby("sede", dropna=False).agg({
+    "Costo_servicio": "sum",
+    "sobrecosto_total_espera": "sum"
+}).reset_index()
 
         fila_total_sede = {
             "sede": "TOTAL",
