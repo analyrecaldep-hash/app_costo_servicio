@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Gestión ambulancias", layout="wide")
+st.set_page_config(page_title="Cálculo web de costo por servicio", layout="wide")
 
 # =========================================================
 # CONFIGURACION
@@ -156,8 +156,10 @@ def parsear_hora_segura(valor):
 
     return None
 
+
 def parsear_columna_fecha(serie):
     return serie.apply(parsear_fecha_segura)
+
 
 def combinar_fecha_hora(fecha_col, hora_col):
     if pd.isna(fecha_col) or pd.isna(hora_col):
@@ -187,7 +189,7 @@ def minutos_diff(inicio, fin):
     return (fin - inicio).total_seconds() / 60.0
 
 
-def obtener_tarifa_espera(Tipo_unidad):
+def obtener_tarifa_espera(tipo_unidad):
     return TARIFA_ESPERA.get(normalizar_texto(tipo_unidad), 0.0)
 
 
@@ -537,7 +539,7 @@ def exportar_excel(df_resultado):
 # =========================================================
 # UI
 # =========================================================
-st.title("Gestión Ambulancias")
+st.title("Cálculo web de costo por servicio")
 st.caption("Sube el Excel del proveedor, calcula el costo por servicio y descarga el resultado.")
 
 with st.expander("Tarifario aplicado"):
@@ -610,3 +612,4 @@ if archivo is not None:
 
     except Exception as e:
         st.error(f"Ocurrió un error al procesar el archivo: {e}")
+
