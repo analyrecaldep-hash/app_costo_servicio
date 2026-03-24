@@ -1,3 +1,4 @@
+from modulo_penalidades import procesar_penalidades, exportar_excel_penalidades
 import math
 import unicodedata
 from io import BytesIO
