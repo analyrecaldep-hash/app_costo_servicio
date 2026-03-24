@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="Cálculo web de costo por servicio", layout="wide")
-
+tab1, tab2 = st.tabs(["Costo por servicio", "Penalidades"])
 # =========================================================
 # CONFIGURACION
 # =========================================================
@@ -354,9 +354,13 @@ def exportar_excel(df_resultado):
 # =========================================================
 # UI
 # =========================================================
-st.title("Cálculo web de costo por servicio")
-st.caption("Sube el Excel del proveedor, calcula el costo por servicio y descarga el resultado.")
+# UI
+tab1, tab2 = st.tabs(["Costo por servicio", "Penalidades"])
 
+with tab1:
+    st.title("Cálculo web de costo por servicio")
+    st.caption("Sube el Excel del proveedor, calcula el costo por servicio y descarga el resultado.")
+    
 with st.expander("Tarifario aplicado"):
     st.markdown("""
     **Costo servicio**
@@ -550,3 +554,43 @@ if archivo is not None:
 
     except Exception as e:
         st.error(f"Ocurrió un error al procesar el archivo: {e}")
+
+with tab2:
+    st.title("Cálculo de penalidades")
+    st.caption("Sube el Excel del proveedor, calcula penalidades y descarga el resultado.")
+
+    archivo_penalidades = st.file_uploader(
+        "Sube un archivo Excel para penalidades",
+        type=["xlsx", "xls"],
+        key="archivo_penalidades"
+    )
+
+    if archivo_penalidades is not None:
+        try:
+            df_base_pen = pd.read_excel(archivo_penalidades)
+            df_resultado_pen = procesar_penalidades(df_base_pen)
+
+            st.success("Archivo de penalidades procesado correctamente.")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Registros", len(df_resultado_pen))
+            c2.metric("Penalidad origen", f"S/ {df_resultado_pen['penalidad_origen'].sum():,.2f}")
+            c3.metric("Penalidad destino", f"S/ {df_resultado_pen['penalidad_destino'].sum():,.2f}")
+            c4.metric("Pérdida de cita", f"S/ {df_resultado_pen['perdida_cita_monto'].sum():,.2f}")
+
+            st.metric("Penalidad total", f"S/ {df_resultado_pen['penalidad_total'].sum():,.2f}")
+
+            st.subheader("Vista previa")
+            st.dataframe(df_resultado_pen, use_container_width=True)
+
+            excel_bytes_pen = exportar_excel_penalidades(df_resultado_pen)
+
+            st.download_button(
+                "Descargar resultado penalidades",
+                data=excel_bytes_pen,
+                file_name="resultado_penalidades.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+        except Exception as e:
+            st.error(f"Ocurrió un error al procesar penalidades: {e}")
