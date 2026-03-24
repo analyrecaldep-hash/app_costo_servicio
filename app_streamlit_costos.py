@@ -41,6 +41,10 @@ TARIFAS_PENALIDAD = {
 
 MONTO_PERDIDA_CITA = 535.00
 
+# límites de protección para evitar penalidades absurdas
+MAX_MINUTOS_PENALIZABLES = 12 * 60
+MAX_MINUTOS_DIFERENCIA = 3 * 24 * 60
+
 # =========================================================
 # UTILIDADES
 # =========================================================
@@ -125,7 +129,7 @@ def calcular_ocurrencias_espera(minutos_espera):
     return int(math.ceil(excedente / BLOQUE_ESPERA))
 
 
-def calcular_bloques(minutos, tam_bloque):
+def calcular_bloques(minutos, tam_bloque=30):
     if pd.isna(minutos) or minutos <= 0:
         return 0
     return int(math.ceil(minutos / float(tam_bloque)))
@@ -155,6 +159,19 @@ def obtener_dt_registro(row):
 
     return pd.NaT
 
+
+def es_diferencia_inconsistente(minutos):
+    if pd.isna(minutos):
+        return False
+    return abs(minutos) > MAX_MINUTOS_DIFERENCIA
+
+
+def cap_minutos_penalizables(minutos):
+    if pd.isna(minutos) or minutos <= 0:
+        return 0.0
+    return min(float(minutos), float(MAX_MINUTOS_PENALIZABLES))
+
+
 # =========================================================
 # NORMALIZACIÓN
 # =========================================================
@@ -163,6 +180,7 @@ def normalizar_dataframe(df):
     df.columns = [normalizar_texto(c).lower().replace(" ", "_") for c in df.columns]
 
     columnas_texto = [
+        "nro_solicitud",
         "sentido_traslado", "sede", "motivo_traslado", "modalidad", "estado",
         "efectivo", "tipo_unidad", "origen", "lugar_origen", "establecimiento_origen"
     ]
@@ -224,6 +242,7 @@ def normalizar_dataframe(df):
     df["dt_registro_calc"] = df.apply(obtener_dt_registro, axis=1)
 
     return df
+
 
 # =========================================================
 # LÓGICA DE ESPERA
@@ -346,208 +365,9 @@ def segunda_validacion_tiempo_espera_destino(row, minutos):
 
     return minutos
 
-# =========================================================
-# LÓGICA DE PENALIDADES (SEGUNDO SCRIPT INTEGRADO)
-# =========================================================
-import math
-import unicodedata
-import numpy as np
-import pandas as pd
-
 
 # =========================================================
-# CONFIG
-# =========================================================
-TARIFAS_PENALIDAD = {
-    "TIPO I": 32.33,
-    "TIPO II": 41.67,
-    "TIPO III": 460.00,
-    "TIPO III NEONATAL": 920.00,
-}
-
-MONTO_PERDIDA_CITA = 535.00
-
-# límite de protección para evitar penalidades absurdas por fechas mal parseadas
-MAX_MINUTOS_PENALIZABLES = 12 * 60   # 12 horas
-MAX_MINUTOS_DIFERENCIA = 3 * 24 * 60 # 3 días para marcar inconsistencia
-
-
-# =========================================================
-# HELPERS
-# =========================================================
-def normalizar_texto(valor):
-    if pd.isna(valor):
-        return ""
-    valor = str(valor).strip().upper()
-    valor = unicodedata.normalize("NFKD", valor).encode("ascii", "ignore").decode("utf-8")
-    return " ".join(valor.split())
-
-
-def safe_round(valor, dec=2):
-    if pd.isna(valor):
-        return np.nan
-    return round(float(valor), dec)
-
-
-def minutos_diff(inicio, fin):
-    if pd.isna(inicio) or pd.isna(fin):
-        return np.nan
-    return (fin - inicio).total_seconds() / 60.0
-
-
-def combinar_fecha_hora(fecha_col, hora_col):
-    if pd.isna(fecha_col) or pd.isna(hora_col):
-        return pd.NaT
-
-    fecha = pd.to_datetime(fecha_col, errors="coerce", dayfirst=True)
-    if pd.isna(fecha):
-        return pd.NaT
-
-    # si hora_col ya viene como datetime/time serializado
-    try:
-        hora_dt = pd.to_datetime(hora_col, errors="coerce")
-        if pd.notna(hora_dt):
-            return fecha.normalize() + pd.Timedelta(
-                hours=hora_dt.hour,
-                minutes=hora_dt.minute,
-                seconds=hora_dt.second
-            )
-    except Exception:
-        pass
-
-    # si viene como texto HH:MM[:SS]
-    try:
-        hora_txt = str(hora_col).strip()
-        if ":" in hora_txt:
-            partes = hora_txt.split(":")
-            hh = int(partes[0])
-            mm = int(partes[1])
-            ss = int(partes[2]) if len(partes) > 2 else 0
-            return fecha.normalize() + pd.Timedelta(hours=hh, minutes=mm, seconds=ss)
-    except Exception:
-        pass
-
-    return pd.NaT
-
-
-def obtener_tarifa_penalidad(tipo_unidad):
-    return TARIFAS_PENALIDAD.get(normalizar_texto(tipo_unidad), 0.0)
-
-
-def calcular_bloques(minutos, tam_bloque=30):
-    if pd.isna(minutos) or minutos <= 0:
-        return 0
-    return int(math.ceil(minutos / float(tam_bloque)))
-
-
-def es_policlinico_barton(row):
-    candidatos = [
-        row.get("origen", ""),
-        row.get("lugar_origen", ""),
-        row.get("establecimiento_origen", ""),
-        row.get("sede", ""),
-    ]
-    texto = " ".join(normalizar_texto(x) for x in candidatos)
-    return "POLICLINICO BARTON" in texto or ("BARTON" in texto and "POLICLINICO" in texto)
-
-
-def obtener_dt_registro(row):
-    candidatos_directos = ["dt_registro", "fecha_hora_registro", "registro"]
-    for col in candidatos_directos:
-        if col in row.index and pd.notna(row.get(col)):
-            return row.get(col)
-
-    fecha_reg = row.get("fecha_registro", pd.NaT)
-    hora_reg = row.get("hora_registro", pd.NaT)
-
-    if pd.notna(fecha_reg) and pd.notna(hora_reg):
-        return combinar_fecha_hora(fecha_reg, hora_reg)
-
-    return pd.NaT
-
-
-def es_diferencia_inconsistente(minutos):
-    if pd.isna(minutos):
-        return False
-    return abs(minutos) > MAX_MINUTOS_DIFERENCIA
-
-
-def cap_minutos_penalizables(minutos):
-    if pd.isna(minutos) or minutos <= 0:
-        return 0.0
-    return min(float(minutos), float(MAX_MINUTOS_PENALIZABLES))
-
-
-# =========================================================
-# NORMALIZACIÓN
-# =========================================================
-def normalizar_datos_penalidad(df):
-    df = df.copy()
-    df.columns = [normalizar_texto(c).lower().replace(" ", "_") for c in df.columns]
-
-    columnas_texto = [
-        "nro_solicitud",
-        "motivo_traslado",
-        "sentido_traslado",
-        "modalidad",
-        "estado",
-        "tipo_unidad",
-        "sede",
-        "origen",
-        "lugar_origen",
-        "establecimiento_origen",
-    ]
-    for col in columnas_texto:
-        if col in df.columns:
-            df[col] = df[col].apply(normalizar_texto)
-
-    if "motivo_traslado" in df.columns:
-        df["motivo_traslado"] = df["motivo_traslado"].replace({
-            "REFERENCIAS": "REFERENCIA",
-            "EMERGENCIAS": "EMERGENCIA",
-            "ALTAS": "ALTA",
-        })
-
-    if "modalidad" in df.columns:
-        df["modalidad"] = df["modalidad"].replace({
-            "PROGRAMADAS": "PROGRAMADA",
-            "NO PROGRAMADO": "NO PROGRAMADA",
-            "NO PROGRAMADOS": "NO PROGRAMADA",
-            "NO PROGRAMADA ": "NO PROGRAMADA",
-        })
-
-    columnas_datetime = [
-        "fecha_programada",
-        "llegada_origen",
-        "contacto_paciente_origen",
-        "llegada_destino",
-        "fecha_registro",
-        "dt_registro",
-        "fecha_hora_registro",
-        "registro",
-    ]
-
-    for col in columnas_datetime:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce", dayfirst=True)
-
-    if "hora_programada" not in df.columns:
-        df["hora_programada"] = pd.NaT
-    if "fecha_programada" not in df.columns:
-        df["fecha_programada"] = pd.NaT
-
-    df["dt_programacion"] = df.apply(
-        lambda r: combinar_fecha_hora(r.get("fecha_programada"), r.get("hora_programada")),
-        axis=1
-    )
-
-    df["dt_registro_calc"] = df.apply(obtener_dt_registro, axis=1)
-
-    return df
-
-
-# =========================================================
-# CLASIFICACIÓN DE REGLAS
+# CLASIFICACIÓN DE REGLAS DE PENALIDAD
 # =========================================================
 def obtener_codigo_regla(row):
     motivo = normalizar_texto(row.get("motivo_traslado"))
@@ -576,9 +396,8 @@ def obtener_codigo_regla(row):
     return "SIN_REGLA"
 
 
-def fila_resultado_base(row, codigo_regla):
+def fila_resultado_base(codigo_regla):
     return {
-        "nro_solicitud": row.get("nro_solicitud", ""),
         "codigo_regla": codigo_regla,
         "regla_aplicada": "",
         "observacion_calculo": "",
@@ -602,7 +421,7 @@ def fila_resultado_base(row, codigo_regla):
 def calcular_penalidades_fila(row):
     codigo = obtener_codigo_regla(row)
     tarifa = obtener_tarifa_penalidad(row.get("tipo_unidad"))
-    res = fila_resultado_base(row, codigo)
+    res = fila_resultado_base(codigo)
 
     dt_programacion = row.get("dt_programacion")
     dt_registro = row.get("dt_registro_calc")
@@ -610,11 +429,6 @@ def calcular_penalidades_fila(row):
     llegada_destino = row.get("llegada_destino")
     contacto_origen = row.get("contacto_paciente_origen")
 
-    # -----------------------------------------------------
-    # 1) CITA / IDA / PROGRAMADA
-    # llegada_destino vs (dt_programacion - 15 min)
-    # exoneración si programación - llegada_origen > 60
-    # -----------------------------------------------------
     if codigo == "CITA_IDA_PROGRAMADA":
         res["regla_aplicada"] = "CITA IDA PROGRAMADA"
 
@@ -657,18 +471,11 @@ def calcular_penalidades_fila(row):
 
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 2) CITA / IDA / NO PROGRAMADA
-    # -----------------------------------------------------
     if codigo == "CITA_IDA_NO_PROGRAMADA":
         res["regla_aplicada"] = "CITA IDA NO PROGRAMADA"
         res["observacion_calculo"] = "No aplica penalidad según reglas de negocio."
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 3) CITA / RETORNO / PROGRAMADA o NO PROGRAMADA
-    # contacto_origen vs dt_programacion
-    # -----------------------------------------------------
     if codigo == "CITA_RETORNO":
         res["regla_aplicada"] = "CITA RETORNO"
 
@@ -693,12 +500,6 @@ def calcular_penalidades_fila(row):
 
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 4) REFERENCIA / IDA / PROGRAMADA
-    # llegada_destino vs dt_programacion
-    # pérdida de cita si no hay llegada_destino
-    # exoneración si programación - llegada_origen >= 90
-    # -----------------------------------------------------
     if codigo == "REFERENCIA_IDA_PROGRAMADA":
         res["regla_aplicada"] = "REFERENCIA IDA PROGRAMADA"
 
@@ -741,10 +542,6 @@ def calcular_penalidades_fila(row):
 
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 5) REFERENCIA / IDA / NO PROGRAMADA
-    # dt_registro vs llegada_origen, tolerancia 30
-    # -----------------------------------------------------
     if codigo == "REFERENCIA_IDA_NO_PROGRAMADA":
         res["regla_aplicada"] = "REFERENCIA IDA NO PROGRAMADA"
 
@@ -769,10 +566,6 @@ def calcular_penalidades_fila(row):
 
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 6) REFERENCIA / RETORNO / PROGRAMADA
-    # contacto_origen vs dt_programacion, gracia 30
-    # -----------------------------------------------------
     if codigo == "REFERENCIA_RETORNO_PROGRAMADA":
         res["regla_aplicada"] = "REFERENCIA RETORNO PROGRAMADA"
 
@@ -803,11 +596,6 @@ def calcular_penalidades_fila(row):
 
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 7) EMERGENCIA / IDA / NO PROGRAMADA
-    # dt_registro vs llegada_origen
-    # Barton: tolerancia 15 y bloque 15
-    # -----------------------------------------------------
     if codigo == "EMERGENCIA_IDA_NO_PROGRAMADA":
         res["regla_aplicada"] = "EMERGENCIA IDA NO PROGRAMADA"
 
@@ -836,10 +624,6 @@ def calcular_penalidades_fila(row):
 
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 8) REFERENCIA / RETORNO / NO PROGRAMADA
-    # llegada_origen vs dt_programacion, gracia 30
-    # -----------------------------------------------------
     if codigo == "REFERENCIA_RETORNO_NO_PROGRAMADA":
         res["regla_aplicada"] = "REFERENCIA RETORNO NO PROGRAMADA"
 
@@ -870,10 +654,6 @@ def calcular_penalidades_fila(row):
 
         return pd.Series(res)
 
-    # -----------------------------------------------------
-    # 9) ALTA / IDA / NO PROGRAMADA
-    # dt_registro vs llegada_origen, tolerancia 30
-    # -----------------------------------------------------
     if codigo == "ALTA_IDA_NO_PROGRAMADA":
         res["regla_aplicada"] = "ALTA IDA NO PROGRAMADA"
 
@@ -902,22 +682,24 @@ def calcular_penalidades_fila(row):
     return pd.Series(res)
 
 
-# =========================================================
-# PROCESAMIENTO FINAL
-# =========================================================
 def procesar_penalidades(df):
-    df = normalizar_datos_penalidad(df)
+    df_pen = normalizar_dataframe(df).copy()
 
-    resultado = df.apply(calcular_penalidades_fila, axis=1)
-    df_salida = pd.concat([df, resultado], axis=1)
+    resultado = df_pen.apply(calcular_penalidades_fila, axis=1).reset_index(drop=True)
 
-    df_salida["penalidad_total"] = (
-        df_salida["penalidad_origen"].fillna(0)
-        + df_salida["penalidad_destino"].fillna(0)
-        + df_salida["perdida_cita_monto"].fillna(0)
+    df_resultado = pd.concat(
+        [df_pen[["nro_solicitud"]].reset_index(drop=True), resultado],
+        axis=1
+    )
+
+    df_resultado["penalidad_total"] = (
+        df_resultado["penalidad_origen"].fillna(0)
+        + df_resultado["penalidad_destino"].fillna(0)
+        + df_resultado["perdida_cita_monto"].fillna(0)
     ).round(2)
 
-    return df_salida
+    return df_resultado
+
 
 # =========================================================
 # PROCESAMIENTO PRINCIPAL
@@ -993,14 +775,35 @@ def procesar_archivo(df):
         df_salida["ocurrencias_destino"].fillna(0)
     ).astype(int)
 
-    resultado_penalidades = df_salida.apply(calcular_penalidades_fila, axis=1)
-    df_salida = pd.concat([df_salida, resultado_penalidades], axis=1)
+    resultado_penalidades = procesar_penalidades(df_salida)
 
-    df_salida["penalidad_total"] = (
-        df_salida["penalidad_origen"].fillna(0) +
-        df_salida["penalidad_destino"].fillna(0) +
-        df_salida["perdida_cita_monto"].fillna(0)
-    ).round(2)
+    columnas_penalidad = [
+        "nro_solicitud",
+        "codigo_regla",
+        "regla_aplicada",
+        "observacion_calculo",
+        "diferencia_penalidad_origen",
+        "diferencia_penalidad_destino",
+        "min_penalidad_origen",
+        "min_penalidad_destino",
+        "bloques_penalidad_origen",
+        "bloques_penalidad_destino",
+        "penalidad_origen",
+        "penalidad_destino",
+        "perdida_cita_flag",
+        "perdida_cita_monto",
+        "flag_inconsistencia_fecha",
+        "penalidad_total",
+    ]
+
+    resultado_penalidades = resultado_penalidades[columnas_penalidad].copy()
+    resultado_penalidades = resultado_penalidades.drop_duplicates(subset=["nro_solicitud"])
+
+    df_salida = df_salida.merge(
+        resultado_penalidades,
+        on="nro_solicitud",
+        how="left"
+    )
 
     return df_salida
 
@@ -1011,6 +814,7 @@ def exportar_excel(df_resultado):
         df_resultado.to_excel(writer, sheet_name="detalle", index=False)
     output.seek(0)
     return output
+
 
 # =========================================================
 # UI STREAMLIT
@@ -1116,6 +920,11 @@ if archivo is not None:
 
             resumen_sede = pd.concat([resumen_sede, pd.DataFrame([fila_total_sede])], ignore_index=True)
             st.dataframe(resumen_sede, use_container_width=True)
+
+        if "flag_inconsistencia_fecha" in df_filtrado.columns:
+            total_inconsistencias = int(df_filtrado["flag_inconsistencia_fecha"].fillna(0).sum())
+            if total_inconsistencias > 0:
+                st.warning(f"Se detectaron {total_inconsistencias} registros con inconsistencias de fecha/hora en penalidades.")
 
         excel_bytes = exportar_excel(df_resultado)
         st.download_button(
