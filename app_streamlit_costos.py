@@ -383,25 +383,29 @@ archivo = st.file_uploader("Sube un archivo Excel", type=["xlsx", "xls"])
 
 if archivo is not None:
     try:
-        df_base = pd.read_excel(archivo)
-        df_resultado = procesar_archivo(df_base)
+    df_base = pd.read_excel(archivo)
+    df_resultado = procesar_archivo(df_base)
 
-        st.success("Archivo procesado correctamente.")
+    st.success("Archivo procesado correctamente.")
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Registros", len(df_resultado))
-        c2.metric("Costo servicio total", f"{df_resultado['Costo_servicio'].sum():,.2f}")
-        c3.metric("Sobrecosto total espera", f"{df_resultado['sobrecosto_total_espera'].sum():,.2f}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Registros", len(df_resultado))
+    c2.metric("Costo servicio total", f"{df_resultado['Costo_servicio'].sum():,.2f}")
+    c3.metric("Sobrecosto total espera", f"{df_resultado['sobrecosto_total_espera'].sum():,.2f}")
 
-        st.subheader("Vista previa")
-        st.dataframe(df_resultado.head(20), use_container_width=True)
+    st.subheader("Vista previa")
+    st.dataframe(df_resultado.head(20), use_container_width=True)
 
-        st.subheader("Resumen por tipo de unidad")
-resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg({
-    "Costo_servicio": "sum",
-    "sobrecosto_total_espera": "sum"
-}).reset_index()
+    st.subheader("Resumen por tipo de unidad")
+    resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg({
+        "Costo_servicio": "sum",
+        "sobrecosto_total_espera": "sum"
+    }).reset_index()
 
+    st.dataframe(resumen_tipo, use_container_width=True)
+
+except Exception as e:
+    st.error(f"Error en resumen: {e}")
 # 🔥 Agregar fila TOTAL
 totales_tipo = resumen_tipo.select_dtypes(include='number').sum()
 totales_tipo["tipo_unidad"] = "TOTAL"
