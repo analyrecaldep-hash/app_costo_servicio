@@ -50,37 +50,137 @@ def safe_round(valor, dec=2):
     return round(float(valor), dec)
 
 
+def parsear_fecha_segura(valor):
+    if pd.isna(valor):
+        return pd.NaT
+
+    if isinstance(valor, pd.Timestamp):
+        return valor
+
+    # Serial de Excel
+    if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+        try:
+            return pd.to_datetime(valor, unit="D", origin="1899-12-30", errors="coerce")
+        except Exception:
+            return pd.NaT
+
+    txt = str(valor).strip()
+    if not txt:
+        return pd.NaT
+
+    # Primero intenta formatos año-mes-día / año/mes/día
+    formatos_ymd = [
+        "%Y-%m-%d",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y/%m/%d",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y/%m/%d %H:%M",
+    ]
+    for fmt in formatos_ymd:
+        try:
+            return pd.to_datetime(txt, format=fmt, errors="raise")
+        except Exception:
+            pass
+
+    # Luego intenta día/mes/año
+    formatos_dmy = [
+        "%d/%m/%Y",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d-%m-%Y",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y %H:%M",
+    ]
+    for fmt in formatos_dmy:
+        try:
+            return pd.to_datetime(txt, format=fmt, errors="raise")
+        except Exception:
+            pass
+
+    # Último intento automático
+    try:
+        return pd.to_datetime(txt, errors="coerce")
+    except Exception:
+        return pd.NaT
+
+
+def parsear_hora_segura(valor):
+    if pd.isna(valor):
+        return None
+
+    if isinstance(valor, pd.Timestamp):
+        return {
+            "hour": valor.hour,
+            "minute": valor.minute,
+            "second": valor.second
+        }
+
+    # Serial Excel que representa hora
+    if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+        try:
+            hora_dt = pd.to_datetime(valor, unit="D", origin="1899-12-30", errors="coerce")
+            if pd.notna(hora_dt):
+                return {
+                    "hour": hora_dt.hour,
+                    "minute": hora_dt.minute,
+                    "second": hora_dt.second
+                }
+        except Exception:
+            pass
+
+    txt = str(valor).strip()
+    if not txt:
+        return None
+
+    try:
+        partes = txt.split(":")
+        if len(partes) >= 2:
+            hh = int(partes[0])
+            mm = int(partes[1])
+            ss = int(partes[2]) if len(partes) > 2 else 0
+            return {"hour": hh, "minute": mm, "second": ss}
+    except Exception:
+        pass
+
+    try:
+        hora_dt = pd.to_datetime(txt, errors="coerce")
+        if pd.notna(hora_dt):
+            return {
+                "hour": hora_dt.hour,
+                "minute": hora_dt.minute,
+                "second": hora_dt.second
+            }
+    except Exception:
+        pass
+
+    return None
+
+
+def parsear_columna_fecha(serie):
+    return serie.apply(parsear_fecha_segura)
+
+
 def combinar_fecha_hora(fecha_col, hora_col):
     if pd.isna(fecha_col) or pd.isna(hora_col):
         return pd.NaT
 
-    fecha = pd.to_datetime(fecha_col, errors="coerce", dayfirst=True)
+    fecha = parsear_fecha_segura(fecha_col)
     if pd.isna(fecha):
         return pd.NaT
 
-    try:
-        hora_dt = pd.to_datetime(hora_col, errors="coerce")
-        if pd.notna(hora_dt):
-            return fecha.normalize() + pd.Timedelta(
-                hours=hora_dt.hour,
-                minutes=hora_dt.minute,
-                seconds=hora_dt.second
-            )
-    except Exception:
-        pass
+    hora = parsear_hora_segura(hora_col)
+    if hora is None:
+        return pd.NaT
 
-    try:
-        hora_txt = str(hora_col).strip()
-        if ":" in hora_txt:
-            partes = hora_txt.split(":")
-            hh = int(partes[0])
-            mm = int(partes[1])
-            ss = int(partes[2]) if len(partes) > 2 else 0
-            return fecha.normalize() + pd.Timedelta(hours=hh, minutes=mm, seconds=ss)
-    except Exception:
-        pass
-
-    return pd.NaT
+    return pd.Timestamp(
+        year=fecha.year,
+        month=fecha.month,
+        day=fecha.day,
+        hour=hora["hour"],
+        minute=hora["minute"],
+        second=hora["second"],
+    )
 
 
 def minutos_diff(inicio, fin):
@@ -117,9 +217,11 @@ def agregar_fila_total(df_resumen, col_texto):
     if df_resumen.empty:
         return df_resumen.copy()
 
-    totales = df_resumen.select_dtypes(include="number").sum()
-    totales[col_texto] = "TOTAL"
-    return pd.concat([df_resumen, pd.DataFrame([totales])], ignore_index=True)
+    df_total = df_resumen.copy()
+    totales = df_total.select_dtypes(include="number").sum(numeric_only=True)
+    fila_total = {col_texto: "TOTAL"}
+    fila_total.update(totales.to_dict())
+    return pd.concat([df_total, pd.DataFrame([fila_total])], ignore_index=True)
 
 
 def formatear_resumen(df_resumen):
@@ -130,46 +232,39 @@ def formatear_resumen(df_resumen):
 
 
 # =========================================================
-# LOGICA DE NEGOCIO
+# REGLAS DE TIEMPO DE ESPERA
 # =========================================================
 def calcular_tiempo_espera_origen(row):
     motivo = row.get("motivo_traslado", "")
     sentido = row.get("sentido_traslado", "")
     modalidad = row.get("modalidad", "")
 
-    partida_origen = row.get("partida_origen")
     contacto_origen = row.get("contacto_paciente_origen")
+    partida_origen = row.get("partida_origen")
     llegada_origen = row.get("llegada_origen")
     dt_programacion = row.get("dt_programacion")
 
-    # 1) CITA IDA PROGRAMADA
-    # origen = partida_origen - contacto_paciente_origen
+    # 1) CITA / IDA / PROGRAMADA
     if motivo == "CITA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         return minutos_diff(contacto_origen, partida_origen)
 
-    # 2) CITA IDA NO PROGRAMADA
-    # origen = partida_origen - contacto_paciente_origen
+    # 2) CITA / IDA / NO PROGRAMADA
     if motivo == "CITA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(contacto_origen, partida_origen)
 
-    # 3) CITA RETORNO PROGRAMADA / NO PROGRAMADA
-    # origen = partida_origen - hora_programacion
+    # 3) CITA / RETORNO / PROGRAMADA o NO PROGRAMADA
     if motivo == "CITA" and sentido == "RETORNO" and modalidad in ["PROGRAMADA", "NO PROGRAMADA", "AMBAS(POR ERROR)"]:
         return minutos_diff(dt_programacion, partida_origen)
 
-    # 4) REFERENCIA IDA PROGRAMADA
-    # origen = partida_origen - contacto_paciente_origen
+    # 4) REFERENCIA / IDA / PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         return minutos_diff(contacto_origen, partida_origen)
 
-    # 5) REFERENCIA IDA NO PROGRAMADA
-    # origen = partida_origen - contacto_paciente_origen
+    # 5) REFERENCIA / IDA / NO PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(contacto_origen, partida_origen)
 
-    # 6) REFERENCIA RETORNO PROGRAMADA
-    # si llega temprano -> partida_origen - hora_programacion
-    # si llega tarde   -> partida_origen - llegada_origen
+    # 6) REFERENCIA / RETORNO / PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_programacion):
             if llegada_origen <= dt_programacion:
@@ -177,8 +272,7 @@ def calcular_tiempo_espera_origen(row):
             return minutos_diff(llegada_origen, partida_origen)
         return np.nan
 
-    # 7) REFERENCIA RETORNO NO PROGRAMADA
-    # mismo cálculo base que retorno programada
+    # 7) REFERENCIA / RETORNO / NO PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "NO PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_programacion):
             if llegada_origen <= dt_programacion:
@@ -186,13 +280,11 @@ def calcular_tiempo_espera_origen(row):
             return minutos_diff(llegada_origen, partida_origen)
         return np.nan
 
-    # 8) EMERGENCIA IDA NO PROGRAMADA
-    # origen = partida_origen - contacto_paciente_origen
+    # 8) EMERGENCIA / IDA / NO PROGRAMADA
     if motivo == "EMERGENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(contacto_origen, partida_origen)
 
-    # 9) ALTA IDA NO PROGRAMADA
-    # origen = partida_origen - contacto_paciente_origen
+    # 9) ALTA / IDA / NO PROGRAMADA
     if motivo == "ALTA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(contacto_origen, partida_origen)
 
@@ -212,22 +304,19 @@ def segunda_validacion_tiempo_espera_origen(row, minutos):
     if pd.isna(minutos):
         return np.nan
 
-    # 3) CITA RETORNO PROGRAMADA / NO PROGRAMADA
-    # si contacto_paciente_origen > hora_programacion, no aplica espera
+    # CITA / RETORNO
     if motivo == "CITA" and sentido == "RETORNO" and modalidad in ["PROGRAMADA", "NO PROGRAMADA", "AMBAS(POR ERROR)"]:
         if pd.notna(contacto_origen) and pd.notna(dt_programacion):
             if contacto_origen > dt_programacion:
                 return 0.0
 
-    # 6) REFERENCIA RETORNO PROGRAMADA
-    # si llegada_origen > hora_programacion, llegó tarde y no aplica espera programada
+    # REFERENCIA / RETORNO / PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_programacion):
             if llegada_origen > dt_programacion:
                 return 0.0
 
-    # 7) REFERENCIA RETORNO NO PROGRAMADA
-    # solo paga espera si llegada_origen - hora_registro <= 30 min
+    # REFERENCIA / RETORNO / NO PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "NO PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_registro):
             dif = minutos_diff(dt_registro, llegada_origen)
@@ -246,11 +335,7 @@ def calcular_tiempo_espera_destino(row):
     hora_finalizacion = row.get("hora_finalizacion")
     dt_programacion = row.get("dt_programacion")
 
-    # 1) CITA IDA PROGRAMADA
-    # si llegada_destino <= hora_programacion:
-    #   destino = hora_finalizacion - hora_programacion
-    # sino:
-    #   destino = hora_finalizacion - llegada_destino
+    # 1) CITA / IDA / PROGRAMADA
     if motivo == "CITA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_destino) and pd.notna(dt_programacion):
             if llegada_destino <= dt_programacion:
@@ -258,21 +343,15 @@ def calcular_tiempo_espera_destino(row):
             return minutos_diff(llegada_destino, hora_finalizacion)
         return np.nan
 
-    # 2) CITA IDA NO PROGRAMADA
-    # destino = hora_finalizacion - hora_programacion
+    # 2) CITA / IDA / NO PROGRAMADA
     if motivo == "CITA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(dt_programacion, hora_finalizacion)
 
-    # 3) CITA RETORNO PROGRAMADA / NO PROGRAMADA
-    # destino = hora_finalizacion - llegada_destino
+    # 3) CITA / RETORNO / PROGRAMADA o NO PROGRAMADA
     if motivo == "CITA" and sentido == "RETORNO" and modalidad in ["PROGRAMADA", "NO PROGRAMADA", "AMBAS(POR ERROR)"]:
         return minutos_diff(llegada_destino, hora_finalizacion)
 
-    # 4) REFERENCIA IDA PROGRAMADA
-    # si llegada_destino <= hora_programacion:
-    #   destino = hora_finalizacion - hora_programacion
-    # sino:
-    #   destino = hora_finalizacion - llegada_destino
+    # 4) REFERENCIA / IDA / PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_destino) and pd.notna(dt_programacion):
             if llegada_destino <= dt_programacion:
@@ -280,28 +359,23 @@ def calcular_tiempo_espera_destino(row):
             return minutos_diff(llegada_destino, hora_finalizacion)
         return np.nan
 
-    # 5) REFERENCIA IDA NO PROGRAMADA
-    # destino = hora_finalizacion - llegada_destino
+    # 5) REFERENCIA / IDA / NO PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
-    # 6) REFERENCIA RETORNO PROGRAMADA
-    # destino = hora_finalizacion - llegada_destino
+    # 6) REFERENCIA / RETORNO / PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
-    # 7) REFERENCIA RETORNO NO PROGRAMADA
-    # destino = hora_finalizacion - llegada_destino
+    # 7) REFERENCIA / RETORNO / NO PROGRAMADA
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "NO PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
-    # 8) EMERGENCIA IDA NO PROGRAMADA
-    # destino = hora_finalizacion - llegada_destino
+    # 8) EMERGENCIA / IDA / NO PROGRAMADA
     if motivo == "EMERGENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
-    # 9) ALTA IDA NO PROGRAMADA
-    # destino = hora_finalizacion - llegada_destino
+    # 9) ALTA / IDA / NO PROGRAMADA
     if motivo == "ALTA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
@@ -319,21 +393,22 @@ def segunda_validacion_tiempo_espera_destino(row, minutos):
     if pd.isna(minutos):
         return np.nan
 
-    # 1) CITA IDA PROGRAMADA
-    # si llegada_origen - hora_programacion < 60 => no aplica espera destino
+    # CITA / IDA / PROGRAMADA
     if motivo == "CITA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_programacion):
-            dif = minutos_diff(llegada_origen, dt_programacion)
+            dif = minutos_diff(dt_programacion, llegada_origen)
             if pd.notna(dif) and dif < 60:
                 return 0.0
 
     return minutos
+
 
 # =========================================================
 # PROCESAMIENTO PRINCIPAL
 # =========================================================
 def procesar_archivo(df):
     df = df.copy()
+    df.columns = [normalizar_texto(c).lower().replace(" ", "_") for c in df.columns]
 
     for col in ["sentido_traslado", "sede", "motivo_traslado", "modalidad", "estado", "efectivo", "tipo_unidad"]:
         if col in df.columns:
@@ -350,13 +425,9 @@ def procesar_archivo(df):
         df["modalidad"] = df["modalidad"].replace({
             "PROGRAMADAS": "PROGRAMADA",
             "NO PROGRAMADO": "NO PROGRAMADA",
+            "NO PROGRAMADOS": "NO PROGRAMADA",
+            "NO PROGRAMADA ": "NO PROGRAMADA",
             "AMBAS(POR ERROR)": "AMBAS(POR ERROR)"
-        })
-
-    if "sentido_traslado" in df.columns:
-        df["sentido_traslado"] = df["sentido_traslado"].replace({
-            "RETORNO": "RETORNO",
-            "IDA": "IDA"
         })
 
     columnas_datetime = [
@@ -373,13 +444,18 @@ def procesar_archivo(df):
 
     for col in columnas_datetime:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce", dayfirst=True)
+            df[col] = parsear_columna_fecha(df[col])
+
+    if "dt_registro" not in df.columns:
+        df["dt_registro"] = pd.NaT
 
     df["dt_registro"] = df.apply(
-        lambda r: combinar_fecha_hora(r.get("fecha_registro"), r.get("hora_registro")), axis=1
+        lambda r: combinar_fecha_hora(r.get("fecha_registro"), r.get("hora_registro")),
+        axis=1
     )
     df["dt_programacion"] = df.apply(
-        lambda r: combinar_fecha_hora(r.get("fecha_programada"), r.get("hora_programada")), axis=1
+        lambda r: combinar_fecha_hora(r.get("fecha_programada"), r.get("hora_programada")),
+        axis=1
     )
 
     def procesar_fila(row):
