@@ -142,22 +142,59 @@ def calcular_tiempo_espera_origen(row):
     llegada_origen = row.get("llegada_origen")
     dt_programacion = row.get("dt_programacion")
 
-    if (
-        (motivo == "CITA" and sentido == "IDA" and modalidad in ["PROGRAMADA", "NO PROGRAMADA"]) or
-        (motivo == "REFERENCIA" and sentido == "IDA" and modalidad in ["PROGRAMADA", "NO PROGRAMADA"]) or
-        (motivo == "EMERGENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA") or
-        (motivo == "ALTA" and sentido == "IDA" and modalidad == "NO PROGRAMADA")
-    ):
+    # 1) CITA IDA PROGRAMADA
+    # origen = partida_origen - contacto_paciente_origen
+    if motivo == "CITA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         return minutos_diff(contacto_origen, partida_origen)
 
-    if motivo == "CITA" and sentido == "RETORNO" and modalidad == "AMBAS(POR ERROR)":
+    # 2) CITA IDA NO PROGRAMADA
+    # origen = partida_origen - contacto_paciente_origen
+    if motivo == "CITA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+        return minutos_diff(contacto_origen, partida_origen)
+
+    # 3) CITA RETORNO PROGRAMADA / NO PROGRAMADA
+    # origen = partida_origen - hora_programacion
+    if motivo == "CITA" and sentido == "RETORNO" and modalidad in ["PROGRAMADA", "NO PROGRAMADA", "AMBAS(POR ERROR)"]:
         return minutos_diff(dt_programacion, partida_origen)
 
-    if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad in ["PROGRAMADA", "NO PROGRAMADA"]:
+    # 4) REFERENCIA IDA PROGRAMADA
+    # origen = partida_origen - contacto_paciente_origen
+    if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "PROGRAMADA":
+        return minutos_diff(contacto_origen, partida_origen)
+
+    # 5) REFERENCIA IDA NO PROGRAMADA
+    # origen = partida_origen - contacto_paciente_origen
+    if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+        return minutos_diff(contacto_origen, partida_origen)
+
+    # 6) REFERENCIA RETORNO PROGRAMADA
+    # si llega temprano -> partida_origen - hora_programacion
+    # si llega tarde   -> partida_origen - llegada_origen
+    if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_programacion):
             if llegada_origen <= dt_programacion:
                 return minutos_diff(dt_programacion, partida_origen)
             return minutos_diff(llegada_origen, partida_origen)
+        return np.nan
+
+    # 7) REFERENCIA RETORNO NO PROGRAMADA
+    # mismo cálculo base que retorno programada
+    if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "NO PROGRAMADA":
+        if pd.notna(llegada_origen) and pd.notna(dt_programacion):
+            if llegada_origen <= dt_programacion:
+                return minutos_diff(dt_programacion, partida_origen)
+            return minutos_diff(llegada_origen, partida_origen)
+        return np.nan
+
+    # 8) EMERGENCIA IDA NO PROGRAMADA
+    # origen = partida_origen - contacto_paciente_origen
+    if motivo == "EMERGENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+        return minutos_diff(contacto_origen, partida_origen)
+
+    # 9) ALTA IDA NO PROGRAMADA
+    # origen = partida_origen - contacto_paciente_origen
+    if motivo == "ALTA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+        return minutos_diff(contacto_origen, partida_origen)
 
     return np.nan
 
@@ -175,14 +212,22 @@ def segunda_validacion_tiempo_espera_origen(row, minutos):
     if pd.isna(minutos):
         return np.nan
 
-    if motivo == "CITA" and sentido == "RETORNO" and modalidad == "AMBAS(POR ERROR)":
-        if pd.notna(contacto_origen) and pd.notna(dt_programacion) and contacto_origen > dt_programacion:
-            return 0.0
+    # 3) CITA RETORNO PROGRAMADA / NO PROGRAMADA
+    # si contacto_paciente_origen > hora_programacion, no aplica espera
+    if motivo == "CITA" and sentido == "RETORNO" and modalidad in ["PROGRAMADA", "NO PROGRAMADA", "AMBAS(POR ERROR)"]:
+        if pd.notna(contacto_origen) and pd.notna(dt_programacion):
+            if contacto_origen > dt_programacion:
+                return 0.0
 
+    # 6) REFERENCIA RETORNO PROGRAMADA
+    # si llegada_origen > hora_programacion, llegó tarde y no aplica espera programada
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "PROGRAMADA":
-        if pd.notna(llegada_origen) and pd.notna(dt_programacion) and llegada_origen > dt_programacion:
-            return 0.0
+        if pd.notna(llegada_origen) and pd.notna(dt_programacion):
+            if llegada_origen > dt_programacion:
+                return 0.0
 
+    # 7) REFERENCIA RETORNO NO PROGRAMADA
+    # solo paga espera si llegada_origen - hora_registro <= 30 min
     if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "NO PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_registro):
             dif = minutos_diff(dt_registro, llegada_origen)
@@ -201,30 +246,62 @@ def calcular_tiempo_espera_destino(row):
     hora_finalizacion = row.get("hora_finalizacion")
     dt_programacion = row.get("dt_programacion")
 
+    # 1) CITA IDA PROGRAMADA
+    # si llegada_destino <= hora_programacion:
+    #   destino = hora_finalizacion - hora_programacion
+    # sino:
+    #   destino = hora_finalizacion - llegada_destino
     if motivo == "CITA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_destino) and pd.notna(dt_programacion):
             if llegada_destino <= dt_programacion:
                 return minutos_diff(dt_programacion, hora_finalizacion)
             return minutos_diff(llegada_destino, hora_finalizacion)
+        return np.nan
 
+    # 2) CITA IDA NO PROGRAMADA
+    # destino = hora_finalizacion - hora_programacion
     if motivo == "CITA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(dt_programacion, hora_finalizacion)
 
-    if motivo == "CITA" and sentido == "RETORNO" and modalidad == "AMBAS(POR ERROR)":
+    # 3) CITA RETORNO PROGRAMADA / NO PROGRAMADA
+    # destino = hora_finalizacion - llegada_destino
+    if motivo == "CITA" and sentido == "RETORNO" and modalidad in ["PROGRAMADA", "NO PROGRAMADA", "AMBAS(POR ERROR)"]:
         return minutos_diff(llegada_destino, hora_finalizacion)
 
+    # 4) REFERENCIA IDA PROGRAMADA
+    # si llegada_destino <= hora_programacion:
+    #   destino = hora_finalizacion - hora_programacion
+    # sino:
+    #   destino = hora_finalizacion - llegada_destino
     if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_destino) and pd.notna(dt_programacion):
             if llegada_destino <= dt_programacion:
                 return minutos_diff(dt_programacion, hora_finalizacion)
             return minutos_diff(llegada_destino, hora_finalizacion)
+        return np.nan
 
-    if motivo == "REFERENCIA" and sentido in ["IDA", "RETORNO"] and modalidad in ["NO PROGRAMADA", "PROGRAMADA"]:
+    # 5) REFERENCIA IDA NO PROGRAMADA
+    # destino = hora_finalizacion - llegada_destino
+    if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
+    # 6) REFERENCIA RETORNO PROGRAMADA
+    # destino = hora_finalizacion - llegada_destino
+    if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "PROGRAMADA":
+        return minutos_diff(llegada_destino, hora_finalizacion)
+
+    # 7) REFERENCIA RETORNO NO PROGRAMADA
+    # destino = hora_finalizacion - llegada_destino
+    if motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "NO PROGRAMADA":
+        return minutos_diff(llegada_destino, hora_finalizacion)
+
+    # 8) EMERGENCIA IDA NO PROGRAMADA
+    # destino = hora_finalizacion - llegada_destino
     if motivo == "EMERGENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
+    # 9) ALTA IDA NO PROGRAMADA
+    # destino = hora_finalizacion - llegada_destino
     if motivo == "ALTA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         return minutos_diff(llegada_destino, hora_finalizacion)
 
@@ -242,14 +319,15 @@ def segunda_validacion_tiempo_espera_destino(row, minutos):
     if pd.isna(minutos):
         return np.nan
 
+    # 1) CITA IDA PROGRAMADA
+    # si llegada_origen - hora_programacion < 60 => no aplica espera destino
     if motivo == "CITA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_programacion):
-            dif = abs(minutos_diff(llegada_origen, dt_programacion))
+            dif = minutos_diff(llegada_origen, dt_programacion)
             if pd.notna(dif) and dif < 60:
                 return 0.0
 
     return minutos
-
 
 # =========================================================
 # PROCESAMIENTO PRINCIPAL
