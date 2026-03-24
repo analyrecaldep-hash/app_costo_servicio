@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Cálculo web de costo por servicio", layout="wide")
+st.set_page_config(page_title="Gestión ambulancias", layout="wide")
 
 # =========================================================
 # CONFIGURACION
@@ -156,10 +156,8 @@ def parsear_hora_segura(valor):
 
     return None
 
-
 def parsear_columna_fecha(serie):
     return serie.apply(parsear_fecha_segura)
-
 
 def combinar_fecha_hora(fecha_col, hora_col):
     if pd.isna(fecha_col) or pd.isna(hora_col):
@@ -539,7 +537,7 @@ def exportar_excel(df_resultado):
 # =========================================================
 # UI
 # =========================================================
-st.title("Cálculo web de costo por servicio")
+st.title("Gestión Ambulancias")
 st.caption("Sube el Excel del proveedor, calcula el costo por servicio y descarga el resultado.")
 
 with st.expander("Tarifario aplicado"):
@@ -583,7 +581,7 @@ if archivo is not None:
         st.dataframe(df_resultado.head(20), use_container_width=True)
 
         st.subheader("Resumen por tipo de unidad")
-        resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg(
+        resumen_tipo = df_resultado.groupby("Tipo Unidad", dropna=False).agg(
             {
                 "Costo_servicio": "sum",
                 "sobrecosto_total_espera": "sum",
