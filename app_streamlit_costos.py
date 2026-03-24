@@ -187,7 +187,7 @@ def minutos_diff(inicio, fin):
     return (fin - inicio).total_seconds() / 60.0
 
 
-def obtener_tarifa_espera(tipo_unidad):
+def obtener_tarifa_espera(Tipo_unidad):
     return TARIFA_ESPERA.get(normalizar_texto(tipo_unidad), 0.0)
 
 
@@ -581,7 +581,7 @@ if archivo is not None:
         st.dataframe(df_resultado.head(20), use_container_width=True)
 
         st.subheader("Resumen por tipo de unidad")
-        resumen_tipo = df_resultado.groupby("Tipo Unidad", dropna=False).agg(
+        resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg(
             {
                 "Costo_servicio": "sum",
                 "sobrecosto_total_espera": "sum",
