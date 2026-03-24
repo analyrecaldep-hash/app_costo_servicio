@@ -43,10 +43,12 @@ def normalizar_texto(valor):
     valor = " ".join(valor.split())
     return valor
 
+
 def safe_round(valor, dec=2):
     if pd.isna(valor):
         return np.nan
     return round(float(valor), dec)
+
 
 def combinar_fecha_hora(fecha_col, hora_col):
     if pd.isna(fecha_col) or pd.isna(hora_col):
@@ -80,13 +82,16 @@ def combinar_fecha_hora(fecha_col, hora_col):
 
     return pd.NaT
 
+
 def minutos_diff(inicio, fin):
     if pd.isna(inicio) or pd.isna(fin):
         return np.nan
     return (fin - inicio).total_seconds() / 60.0
 
+
 def obtener_tarifa_espera(tipo_unidad):
     return TARIFA_ESPERA.get(normalizar_texto(tipo_unidad), 0.0)
+
 
 def obtener_costo_servicio(tipo_unidad, efectivo):
     return COSTO_SERVICIO.get(
@@ -94,16 +99,35 @@ def obtener_costo_servicio(tipo_unidad, efectivo):
         0.0
     )
 
+
 def calcular_excedente_espera(minutos_espera):
     if pd.isna(minutos_espera) or minutos_espera <= MINUTOS_LIBRES_ESPERA:
         return 0.0
     return float(minutos_espera - MINUTOS_LIBRES_ESPERA)
+
 
 def calcular_ocurrencias_espera(minutos_espera):
     excedente = calcular_excedente_espera(minutos_espera)
     if excedente <= 0:
         return 0
     return int(math.ceil(excedente / BLOQUE_ESPERA))
+
+
+def agregar_fila_total(df_resumen, col_texto):
+    if df_resumen.empty:
+        return df_resumen.copy()
+
+    totales = df_resumen.select_dtypes(include="number").sum()
+    totales[col_texto] = "TOTAL"
+    return pd.concat([df_resumen, pd.DataFrame([totales])], ignore_index=True)
+
+
+def formatear_resumen(df_resumen):
+    df_fmt = df_resumen.copy()
+    for col in df_fmt.select_dtypes(include="number").columns:
+        df_fmt[col] = df_fmt[col].apply(lambda x: f"{x:,.2f}")
+    return df_fmt
+
 
 # =========================================================
 # LOGICA DE NEGOCIO
@@ -137,6 +161,7 @@ def calcular_tiempo_espera_origen(row):
 
     return np.nan
 
+
 def segunda_validacion_tiempo_espera_origen(row, minutos):
     motivo = row.get("motivo_traslado", "")
     sentido = row.get("sentido_traslado", "")
@@ -165,6 +190,7 @@ def segunda_validacion_tiempo_espera_origen(row, minutos):
                 return 0.0
 
     return minutos
+
 
 def calcular_tiempo_espera_destino(row):
     motivo = row.get("motivo_traslado", "")
@@ -204,6 +230,7 @@ def calcular_tiempo_espera_destino(row):
 
     return np.nan
 
+
 def segunda_validacion_tiempo_espera_destino(row, minutos):
     motivo = row.get("motivo_traslado", "")
     sentido = row.get("sentido_traslado", "")
@@ -222,6 +249,7 @@ def segunda_validacion_tiempo_espera_destino(row, minutos):
                 return 0.0
 
     return minutos
+
 
 # =========================================================
 # PROCESAMIENTO PRINCIPAL
@@ -260,12 +288,14 @@ def procesar_archivo(df):
         "partida_origen",
         "llegada_destino",
         "contacto_paciente_destino",
-        "hora_finalizacion"
+        "hora_finalizacion",
+        "fecha_registro",
+        "fecha_programada",
     ]
 
     for col in columnas_datetime:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
+            df[col] = pd.to_datetime(df[col], errors="coerce", dayfirst=True)
 
     df["dt_registro"] = df.apply(
         lambda r: combinar_fecha_hora(r.get("fecha_registro"), r.get("hora_registro")), axis=1
@@ -343,12 +373,14 @@ def procesar_archivo(df):
 
     return df_salida
 
+
 def exportar_excel(df_resultado):
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_resultado.to_excel(writer, sheet_name="detalle", index=False)
     output.seek(0)
     return output
+
 
 # =========================================================
 # UI
@@ -397,54 +429,24 @@ if archivo is not None:
         st.dataframe(df_resultado.head(20), use_container_width=True)
 
         st.subheader("Resumen por tipo de unidad")
-        resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg({
-            "Costo_servicio": "sum",
-            "sobrecosto_total_espera": "sum"
-        }).reset_index()
-
-        st.dataframe(resumen_tipo, use_container_width=True)
-
-        excel_bytes = exportar_excel(df_resultado)
-        st.download_button(
-            label="Descargar resultado en Excel",
-            data=excel_bytes,
-            file_name="resultado_costos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    except Exception as e:
-        st.error(f"Ocurrió un error al procesar el archivo: {e}")
-except Exception as e:
-    st.error(f"Error en resumen: {e}")
-# 🔥 Agregar fila TOTAL
-totales_tipo = resumen_tipo.select_dtypes(include='number').sum()
-totales_tipo["tipo_unidad"] = "TOTAL"
-
-resumen_tipo = pd.concat([resumen_tipo, pd.DataFrame([totales_tipo])], ignore_index=True)
-
-# 🔥 Formatear con comas
-resumen_tipo_formateado = resumen_tipo.copy()
-for col in resumen_tipo_formateado.select_dtypes(include='number').columns:
-    resumen_tipo_formateado[col] = resumen_tipo_formateado[col].apply(lambda x: f"{x:,.0f}")
-    st.dataframe(resumen_tipo_formateado, use_container_width=True)
+        resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg(
+            {
+                "Costo_servicio": "sum",
+                "sobrecosto_total_espera": "sum",
+            }
+        ).reset_index()
+        resumen_tipo = agregar_fila_total(resumen_tipo, "tipo_unidad")
+        st.dataframe(formatear_resumen(resumen_tipo), use_container_width=True)
 
         st.subheader("Resumen por sede")
-        resumen_sede = df_resultado.groupby("sede", dropna=False).agg({
-    "Costo_servicio": "sum",
-    "sobrecosto_total_espera": "sum"
-}).reset_index()
-
-# 🔥 Agregar TOTAL
-totales_sede = resumen_sede.select_dtypes(include='number').sum()
-totales_sede["sede"] = "TOTAL"
-
-resumen_sede = pd.concat([resumen_sede, pd.DataFrame([totales_sede])], ignore_index=True)
-
-# 🔥 Formatear
-resumen_sede_formateado = resumen_sede.copy()
-for col in resumen_sede_formateado.select_dtypes(include='number').columns:
-    resumen_sede_formateado[col] = resumen_sede_formateado[col].apply(lambda x: f"{x:,.0f}")
-   st.dataframe(resumen_sede_formateado, use_container_width=True)
+        resumen_sede = df_resultado.groupby("sede", dropna=False).agg(
+            {
+                "Costo_servicio": "sum",
+                "sobrecosto_total_espera": "sum",
+            }
+        ).reset_index()
+        resumen_sede = agregar_fila_total(resumen_sede, "sede")
+        st.dataframe(formatear_resumen(resumen_sede), use_container_width=True)
 
         excel_bytes = exportar_excel(df_resultado)
         st.download_button(
