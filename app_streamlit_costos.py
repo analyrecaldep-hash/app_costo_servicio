@@ -658,6 +658,7 @@ if archivo is not None:
         c1.metric("Registros", len(df_resultado))
         c2.metric("Costo servicio total", f"{df_resultado['Costo_servicio'].sum():,.2f}")
         c3.metric("Sobrecosto total espera", f"{df_resultado['sobrecosto_total_espera'].sum():,.2f}")
+        c4.metric("Penalidad total", f"{df_resultado['penalidad_total'].sum():,.2f}")
 
         st.subheader("Vista previa")
         st.dataframe(df_resultado.head(20), use_container_width=True)
@@ -677,6 +678,7 @@ if archivo is not None:
             {
                 "Costo_servicio": "sum",
                 "sobrecosto_total_espera": "sum",
+                "penalidad_total": "sum",
             }
         ).reset_index()
         resumen_sede = agregar_fila_total(resumen_sede, "sede")
