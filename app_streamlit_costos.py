@@ -717,7 +717,181 @@ if archivo is not None:
     try:
         df_base = pd.read_excel(archivo)
         df_resultado = procesar_archivo(df_base)
+        # =========================
+        # FILTROS TIPO DASHBOARD
+        # =========================
+        st.subheader("Filtros")
 
+        f1, f2, f3, f4 = st.columns(4)
+
+        with f1:
+            estados = sorted([x for x in df_resultado["estado"].dropna().unique().tolist()]) if "estado" in df_resultado.columns else []
+            estados_sel = st.multiselect("Estado", estados, default=estados)
+
+        with f2:
+            sedes = sorted([x for x in df_resultado["sede"].dropna().unique().tolist()]) if "sede" in df_resultado.columns else []
+            sedes_sel = st.multiselect("Sede", sedes, default=sedes)
+
+        with f3:
+            motivos = sorted([x for x in df_resultado["motivo_traslado"].dropna().unique().tolist()]) if "motivo_traslado" in df_resultado.columns else []
+            motivos_sel = st.multiselect("Motivo", motivos, default=motivos)
+
+        with f4:
+            tipos = sorted([x for x in df_resultado["tipo_unidad"].dropna().unique().tolist()]) if "tipo_unidad" in df_resultado.columns else []
+            tipos_sel = st.multiselect("Tipo unidad", tipos, default=tipos)
+
+        b1, b2 = st.columns([2, 1])
+
+        with b1:
+            buscar = st.text_input("Buscar Nro Solicitud")
+
+        with b2:
+            solo_penalidad = st.checkbox("Solo con penalidad")
+
+        # =========================
+        # APLICAR FILTROS
+        # =========================
+        df_filtrado = df_resultado.copy()
+
+        if "estado" in df_filtrado.columns and estados_sel:
+            df_filtrado = df_filtrado[df_filtrado["estado"].isin(estados_sel)]
+
+        if "sede" in df_filtrado.columns and sedes_sel:
+            df_filtrado = df_filtrado[df_filtrado["sede"].isin(sedes_sel)]
+
+        if "motivo_traslado" in df_filtrado.columns and motivos_sel:
+            df_filtrado = df_filtrado[df_filtrado["motivo_traslado"].isin(motivos_sel)]
+
+        if "tipo_unidad" in df_filtrado.columns and tipos_sel:
+            df_filtrado = df_filtrado[df_filtrado["tipo_unidad"].isin(tipos_sel)]
+
+        if buscar and "nro_solicitud" in df_filtrado.columns:
+            df_filtrado = df_filtrado[
+                df_filtrado["nro_solicitud"].astype(str).str.contains(buscar, case=False, na=False)
+            ]
+
+        if solo_penalidad and "penalidad_total" in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado["penalidad_total"] > 0]
+
+        st.success("Archivo procesado correctamente.")
+
+        # =========================
+        # KPIs
+        # =========================
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Registros", len(df_filtrado))
+        c2.metric("Costo servicio total", f"{df_filtrado['Costo_servicio'].sum():,.2f}")
+        c3.metric("Sobrecosto total espera", f"{df_filtrado['sobrecosto_total_espera'].sum():,.2f}")
+        c4.metric("Penalidad total", f"{df_filtrado['penalidad_total'].sum():,.2f}")
+
+        # =========================
+        # GRAFICOS
+        # =========================
+        st.subheader("Visualizaciones")
+
+        g1, g2 = st.columns(2)
+
+        with g1:
+            if "tipo_unidad" in df_filtrado.columns:
+                chart_tipo = df_filtrado.groupby("tipo_unidad", dropna=False)[
+                    ["Costo_servicio", "sobrecosto_total_espera", "penalidad_total"]
+                ].sum().reset_index()
+                st.caption("Costo, espera y penalidad por tipo de unidad")
+                st.bar_chart(chart_tipo.set_index("tipo_unidad"))
+
+        with g2:
+            if "sede" in df_filtrado.columns:
+                chart_sede = df_filtrado.groupby("sede", dropna=False)[
+                    ["Costo_servicio", "sobrecosto_total_espera", "penalidad_total"]
+                ].sum().reset_index()
+                st.caption("Costo, espera y penalidad por sede")
+                st.bar_chart(chart_sede.set_index("sede"))
+
+        g3, g4 = st.columns(2)
+
+        with g3:
+            if "motivo_traslado" in df_filtrado.columns:
+                chart_motivo = df_filtrado.groupby("motivo_traslado", dropna=False)[
+                    ["sobrecosto_total_espera", "penalidad_total"]
+                ].sum().reset_index()
+                st.caption("Espera y penalidad por motivo")
+                st.bar_chart(chart_motivo.set_index("motivo_traslado"))
+
+        with g4:
+            if "estado" in df_filtrado.columns:
+                conteo_estado = df_filtrado["estado"].value_counts(dropna=False).rename_axis("estado").reset_index(name="cantidad")
+                st.caption("Cantidad de servicios por estado")
+                st.bar_chart(conteo_estado.set_index("estado"))
+
+        # =========================
+        # TOP CASOS
+        # =========================
+        st.subheader("Top casos")
+
+        t1, t2 = st.columns(2)
+
+        with t1:
+            top_espera = df_filtrado.sort_values("sobrecosto_total_espera", ascending=False).head(10)
+            cols_top_espera = [c for c in [
+                "nro_solicitud", "tipo_unidad", "motivo_traslado", "sede",
+                "sobrecosto_total_espera", "tiempo_espera_total"
+            ] if c in top_espera.columns]
+            st.caption("Top 10 por sobrecosto de espera")
+            st.dataframe(top_espera[cols_top_espera], use_container_width=True)
+
+        with t2:
+            top_penalidad = df_filtrado.sort_values("penalidad_total", ascending=False).head(10)
+            cols_top_pen = [c for c in [
+                "nro_solicitud", "tipo_unidad", "motivo_traslado", "sede",
+                "penalidad_total", "detalle_penalidad"
+            ] if c in top_penalidad.columns]
+            st.caption("Top 10 por penalidad")
+            st.dataframe(top_penalidad[cols_top_pen], use_container_width=True)
+
+        # =========================
+        # DETALLE
+        # =========================
+        st.subheader("Vista previa")
+        st.dataframe(df_filtrado.head(20), use_container_width=True)
+
+        # =========================
+        # RESUMEN POR TIPO
+        # =========================
+        st.subheader("Resumen por tipo de unidad")
+        resumen_tipo = df_filtrado.groupby("tipo_unidad", dropna=False).agg(
+            {
+                "Costo_servicio": "sum",
+                "sobrecosto_total_espera": "sum",
+                "penalidad_total": "sum",
+            }
+        ).reset_index()
+        resumen_tipo = agregar_fila_total(resumen_tipo, "tipo_unidad")
+        st.dataframe(formatear_resumen(resumen_tipo), use_container_width=True)
+
+        # =========================
+        # RESUMEN POR SEDE
+        # =========================
+        st.subheader("Resumen por sede")
+        resumen_sede = df_filtrado.groupby("sede", dropna=False).agg(
+            {
+                "Costo_servicio": "sum",
+                "sobrecosto_total_espera": "sum",
+                "penalidad_total": "sum",
+            }
+        ).reset_index()
+        resumen_sede = agregar_fila_total(resumen_sede, "sede")
+        st.dataframe(formatear_resumen(resumen_sede), use_container_width=True)
+
+        # =========================
+        # DESCARGA
+        # =========================
+        excel_bytes = exportar_excel(df_filtrado)
+        st.download_button(
+            "Descargar resultado filtrado",
+            data=excel_bytes,
+            file_name="resultado_dashboard.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         st.success("Archivo procesado correctamente.")
 
         c1, c2, c3, c4 = st.columns(4)
