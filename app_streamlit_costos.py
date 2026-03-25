@@ -654,7 +654,7 @@ if archivo is not None:
 
         st.success("Archivo procesado correctamente.")
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric("Registros", len(df_resultado))
         c2.metric("Costo servicio total", f"{df_resultado['Costo_servicio'].sum():,.2f}")
         c3.metric("Sobrecosto total espera", f"{df_resultado['sobrecosto_total_espera'].sum():,.2f}")
