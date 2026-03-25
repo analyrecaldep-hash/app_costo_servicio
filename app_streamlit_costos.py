@@ -775,6 +775,8 @@ if "tipo_unidad" in df_filtrado.columns and tipo_sel != "Todos":
 
         st.success("Archivo procesado correctamente.")
 
+    except Exception as e:
+        st.error(f"Ocurrió un error al procesar el archivo: {e}")
         # =========================
         # KPIs
         # =========================
