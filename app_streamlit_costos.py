@@ -32,6 +32,12 @@ COSTO_SERVICIO = {
     ("TIPO III NEONATAL", "NO EFECTIVO"): 1380.0,
 }
 
+TARIFA_PENALIDAD = {
+    "TIPO I": 32.33,
+    "TIPO II": 41.67,
+    "TIPO III": 460.00,
+    "TIPO III NEONATAL": 920.00,
+}
 # =========================================================
 # UTILIDADES
 # =========================================================
@@ -198,6 +204,9 @@ def obtener_costo_servicio(tipo_unidad, efectivo):
         (normalizar_texto(tipo_unidad), normalizar_texto(efectivo)),
         0.0
     )
+
+def obtener_tarifa_penalidad(tipo_unidad):
+    return TARIFA_PENALIDAD.get(normalizar_texto(tipo_unidad), 0.0)
 
 
 def calcular_excedente_espera(minutos_espera):
@@ -408,68 +417,126 @@ def calcular_penalidades(row):
     motivo = row.get("motivo_traslado", "")
     sentido = row.get("sentido_traslado", "")
     modalidad = row.get("modalidad", "")
+    tipo_unidad = row.get("tipo_unidad", "")
 
     llegada_origen = row.get("llegada_origen")
     contacto = row.get("contacto_paciente_origen")
     llegada_destino = row.get("llegada_destino")
     dt_programacion = row.get("dt_programacion")
     dt_registro = row.get("dt_registro")
-    costo_servicio = row.get("Costo_servicio", 0)
 
     penalidad_origen = 0.0
     penalidad_destino = 0.0
     detalle = ""
 
-    def bloques(min):
-        if pd.isna(min) or min <= 0:
+    tarifa_penalidad = obtener_tarifa_penalidad(tipo_unidad)
+
+    def bloques(minutos, tam_bloque=30):
+        if pd.isna(minutos) or minutos <= 0:
             return 0
-        return int(math.ceil(min / 30))
+        return int(math.ceil(minutos / tam_bloque))
 
     # =========================
-    # CITA RETORNO
+    # CITA RETORNO (PROGRAMADA / NO PROGRAMADA)
     # =========================
     if motivo == "CITA" and sentido == "RETORNO":
         if pd.notna(contacto) and pd.notna(dt_programacion):
-            atraso = minutos_diff(dt_programacion, contacto)
-            if atraso < 0:
-                b = bloques(abs(atraso))
-                penalidad_origen = b * (costo_servicio / 3)
-                detalle = f"CITA RETORNO atraso {abs(atraso)} min"
+            atraso = minutos_diff(dt_programacion, contacto)  # contacto - programacion
+            if pd.notna(atraso) and atraso > 0:
+                b = bloques(atraso, 30)
+                penalidad_origen = b * tarifa_penalidad
+                detalle = f"CITA RETORNO atraso {safe_round(atraso)} min"
 
-    # ===================================
+    # =========================
     # REFERENCIA IDA PROGRAMADA (DESTINO)
-    # ===================================
+    # =========================
     elif motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "PROGRAMADA":
         if pd.notna(llegada_destino) and pd.notna(dt_programacion):
-            atraso = minutos_diff(dt_programacion, llegada_destino)
-            if atraso < 0:
-                b = bloques(abs(atraso))
-                penalidad_destino = b * (costo_servicio / 3)
-                detalle = f"REF IDA PROG atraso {abs(atraso)} min"
+            atraso = minutos_diff(dt_programacion, llegada_destino)  # llegada - programacion
+            if pd.notna(atraso) and atraso > 0:
+                llegada_origen = row.get("llegada_origen")
+                if pd.notna(llegada_origen):
+                    anticipo = minutos_diff(llegada_origen, dt_programacion)  # programacion - llegada_origen
+                    if pd.notna(anticipo) and anticipo >= 90:
+                        penalidad_destino = 0.0
+                        detalle = "REFERENCIA IDA PROG exonerada por anticipación >= 90 min"
+                    else:
+                        b = bloques(atraso, 30)
+                        penalidad_destino = b * tarifa_penalidad
+                        detalle = f"REF IDA PROG atraso {safe_round(atraso)} min"
+                else:
+                    b = bloques(atraso, 30)
+                    penalidad_destino = b * tarifa_penalidad
+                    detalle = f"REF IDA PROG atraso {safe_round(atraso)} min"
 
-    # =====================================
+    # =========================
     # REFERENCIA IDA NO PROGRAMADA (ORIGEN)
-    # =====================================
+    # =========================
     elif motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_registro):
             minutos = minutos_diff(dt_registro, llegada_origen)
-            if minutos > 30:
+            if pd.notna(minutos) and minutos > 30:
                 exceso = minutos - 30
-                b = bloques(exceso)
-                penalidad_origen = b * (costo_servicio / 3)
-                detalle = f"REF IDA NO PROG exceso {exceso} min"
+                b = bloques(exceso, 30)
+                penalidad_origen = b * tarifa_penalidad
+                detalle = f"REF IDA NO PROG exceso {safe_round(exceso)} min"
 
     # =========================
-    # EMERGENCIA / ALTA
+    # REFERENCIA RETORNO PROGRAMADA
     # =========================
-    elif motivo in ["EMERGENCIA", "ALTA"] and sentido == "IDA":
+    elif motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "PROGRAMADA":
+        if pd.notna(contacto) and pd.notna(dt_programacion):
+            atraso = minutos_diff(dt_programacion, contacto)
+            if pd.notna(atraso) and atraso > 0:
+                gracia = 30 if dt_programacion.year >= 2026 else 0
+                exceso = max(0, atraso - gracia)
+                if exceso > 0:
+                    b = bloques(exceso, 30)
+                    penalidad_origen = b * tarifa_penalidad
+                    detalle = f"REF RET PROG exceso {safe_round(exceso)} min (gracia {gracia})"
+
+    # =========================
+    # REFERENCIA RETORNO NO PROGRAMADA
+    # =========================
+    elif motivo == "REFERENCIA" and sentido == "RETORNO" and modalidad == "NO PROGRAMADA":
+        if pd.notna(llegada_origen) and pd.notna(dt_programacion):
+            atraso = minutos_diff(dt_programacion, llegada_origen)
+            if pd.notna(atraso) and atraso > 0:
+                gracia = 30 if dt_programacion.year >= 2026 else 0
+                exceso = max(0, atraso - gracia)
+                if exceso > 0:
+                    b = bloques(exceso, 30)
+                    penalidad_origen = b * tarifa_penalidad
+                    detalle = f"REF RET NO PROG exceso {safe_round(exceso)} min (gracia {gracia})"
+
+    # =========================
+    # EMERGENCIA IDA NO PROGRAMADA
+    # =========================
+    elif motivo == "EMERGENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
         if pd.notna(llegada_origen) and pd.notna(dt_registro):
             minutos = minutos_diff(dt_registro, llegada_origen)
-            if minutos > 30:
+
+            sede = normalizar_texto(row.get("sede", ""))
+            tolerancia = 15 if "BARTON" in sede else 30
+            bloque = 15 if "BARTON" in sede else 30
+
+            if pd.notna(minutos) and minutos > tolerancia:
+                exceso = minutos - tolerancia
+                b = bloques(exceso, bloque)
+                penalidad_origen = b * tarifa_penalidad
+                detalle = f"EMERGENCIA exceso {safe_round(exceso)} min"
+
+    # =========================
+    # ALTA IDA NO PROGRAMADA
+    # =========================
+    elif motivo == "ALTA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+        if pd.notna(llegada_origen) and pd.notna(dt_registro):
+            minutos = minutos_diff(dt_registro, llegada_origen)
+            if pd.notna(minutos) and minutos > 30:
                 exceso = minutos - 30
-                b = bloques(exceso)
-                penalidad_origen = b * (costo_servicio / 3)
-                detalle = f"{motivo} exceso {exceso} min"
+                b = bloques(exceso, 30)
+                penalidad_origen = b * tarifa_penalidad
+                detalle = f"ALTA exceso {safe_round(exceso)} min"
 
     return pd.Series({
         "penalidad_origen": round(penalidad_origen, 2),
@@ -477,7 +544,6 @@ def calcular_penalidades(row):
         "penalidad_total": round(penalidad_origen + penalidad_destino, 2),
         "detalle_penalidad": detalle
     })
-
 # =========================================================
 # PROCESAMIENTO PRINCIPAL
 # =========================================================
