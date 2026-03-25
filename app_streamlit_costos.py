@@ -724,21 +724,23 @@ if archivo is not None:
 
         f1, f2, f3, f4 = st.columns(4)
 
-        with f1:
-            estados = sorted([x for x in df_resultado["estado"].dropna().unique().tolist()]) if "estado" in df_resultado.columns else []
-            estados_sel = st.multiselect("Estado", estados, default=estados)
+f1, f2, f3, f4 = st.columns(4)
 
-        with f2:
-            sedes = sorted([x for x in df_resultado["sede"].dropna().unique().tolist()]) if "sede" in df_resultado.columns else []
-            sedes_sel = st.multiselect("Sede", sedes, default=sedes)
+with f1:
+    estados = ["Todos"] + sorted(df_resultado["estado"].dropna().unique().tolist())
+    estado_sel = st.selectbox("Estado", estados)
 
-        with f3:
-            motivos = sorted([x for x in df_resultado["motivo_traslado"].dropna().unique().tolist()]) if "motivo_traslado" in df_resultado.columns else []
-            motivos_sel = st.multiselect("Motivo", motivos, default=motivos)
+with f2:
+    sedes = ["Todos"] + sorted(df_resultado["sede"].dropna().unique().tolist())
+    sede_sel = st.selectbox("Sede", sedes)
 
-        with f4:
-            tipos = sorted([x for x in df_resultado["tipo_unidad"].dropna().unique().tolist()]) if "tipo_unidad" in df_resultado.columns else []
-            tipos_sel = st.multiselect("Tipo unidad", tipos, default=tipos)
+with f3:
+    motivos = ["Todos"] + sorted(df_resultado["motivo_traslado"].dropna().unique().tolist())
+    motivo_sel = st.selectbox("Motivo", motivos)
+
+with f4:
+    tipos = ["Todos"] + sorted(df_resultado["tipo_unidad"].dropna().unique().tolist())
+    tipo_sel = st.selectbox("Tipo unidad", tipos)
 
         b1, b2 = st.columns([2, 1])
 
