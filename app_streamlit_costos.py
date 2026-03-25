@@ -668,6 +668,7 @@ if archivo is not None:
             {
                 "Costo_servicio": "sum",
                 "sobrecosto_total_espera": "sum",
+                 "penalidad_total": "sum",
             }
         ).reset_index()
         resumen_tipo = agregar_fila_total(resumen_tipo, "tipo_unidad")
