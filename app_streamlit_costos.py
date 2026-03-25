@@ -785,45 +785,6 @@ if archivo is not None:
         c4.metric("Penalidad total", f"{df_filtrado['penalidad_total'].sum():,.2f}")
 
         # =========================
-        # GRAFICOS
-        # =========================
-        st.subheader("Visualizaciones")
-
-        g1, g2 = st.columns(2)
-
-        with g1:
-            if "tipo_unidad" in df_filtrado.columns:
-                chart_tipo = df_filtrado.groupby("tipo_unidad", dropna=False)[
-                    ["Costo_servicio", "sobrecosto_total_espera", "penalidad_total"]
-                ].sum().reset_index()
-                st.caption("Costo, espera y penalidad por tipo de unidad")
-                st.bar_chart(chart_tipo.set_index("tipo_unidad"))
-
-        with g2:
-            if "sede" in df_filtrado.columns:
-                chart_sede = df_filtrado.groupby("sede", dropna=False)[
-                    ["Costo_servicio", "sobrecosto_total_espera", "penalidad_total"]
-                ].sum().reset_index()
-                st.caption("Costo, espera y penalidad por sede")
-                st.bar_chart(chart_sede.set_index("sede"))
-
-        g3, g4 = st.columns(2)
-
-        with g3:
-            if "motivo_traslado" in df_filtrado.columns:
-                chart_motivo = df_filtrado.groupby("motivo_traslado", dropna=False)[
-                    ["sobrecosto_total_espera", "penalidad_total"]
-                ].sum().reset_index()
-                st.caption("Espera y penalidad por motivo")
-                st.bar_chart(chart_motivo.set_index("motivo_traslado"))
-
-        with g4:
-            if "estado" in df_filtrado.columns:
-                conteo_estado = df_filtrado["estado"].value_counts(dropna=False).rename_axis("estado").reset_index(name="cantidad")
-                st.caption("Cantidad de servicios por estado")
-                st.bar_chart(conteo_estado.set_index("estado"))
-
-        # =========================
         # TOP CASOS
         # =========================
         st.subheader("Top casos")
