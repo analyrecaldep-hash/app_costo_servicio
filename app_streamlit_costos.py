@@ -748,22 +748,22 @@ if archivo is not None:
         with b2:
             solo_penalidad = st.checkbox("Solo con penalidad")
 
-# =========================
-# APLICAR FILTROS (SELECTBOX)
-# =========================
-df_filtrado = df_resultado.copy()
+        # =========================
+        # APLICAR FILTROS (SELECTBOX)
+        # =========================
+        df_filtrado = df_resultado.copy()
 
-if "estado" in df_filtrado.columns and estado_sel != "Todos":
-    df_filtrado = df_filtrado[df_filtrado["estado"] == estado_sel]
+        if "estado" in df_filtrado.columns and estado_sel != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["estado"] == estado_sel]
 
-if "sede" in df_filtrado.columns and sede_sel != "Todos":
-    df_filtrado = df_filtrado[df_filtrado["sede"] == sede_sel]
+        if "sede" in df_filtrado.columns and sede_sel != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["sede"] == sede_sel]
 
-if "motivo_traslado" in df_filtrado.columns and motivo_sel != "Todos":
-    df_filtrado = df_filtrado[df_filtrado["motivo_traslado"] == motivo_sel]
+        if "motivo_traslado" in df_filtrado.columns and motivo_sel != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["motivo_traslado"] == motivo_sel]
 
-if "tipo_unidad" in df_filtrado.columns and tipo_sel != "Todos":
-    df_filtrado = df_filtrado[df_filtrado["tipo_unidad"] == tipo_sel]
+        if "tipo_unidad" in df_filtrado.columns and tipo_sel != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["tipo_unidad"] == tipo_sel]
 
         if buscar and "nro_solicitud" in df_filtrado.columns:
             df_filtrado = df_filtrado[
@@ -774,9 +774,6 @@ if "tipo_unidad" in df_filtrado.columns and tipo_sel != "Todos":
             df_filtrado = df_filtrado[df_filtrado["penalidad_total"] > 0]
 
         st.success("Archivo procesado correctamente.")
-
-    except Exception as e:
-        st.error(f"Ocurrió un error al procesar el archivo: {e}")
         # =========================
         # KPIs
         # =========================
