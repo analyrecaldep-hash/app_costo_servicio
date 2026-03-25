@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Cálculo web de costo por servicio", layout="wide")
+st.set_page_config(page_title="Análisis de Servicios de Ambulancia", layout="wide")
 
 # =========================================================
 # CONFIGURACION
