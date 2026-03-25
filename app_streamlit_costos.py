@@ -595,18 +595,18 @@ def procesar_archivo(df):
         df_salida["Sobrecosto_tiempo_espera_Destino"].fillna(0)
     ).round(2)
 
-df_salida["ocurrencias_total"] = (
+    df_salida["ocurrencias_total"] = (
     df_salida["ocurrencias_origen"].fillna(0) +
     df_salida["ocurrencias_destino"].fillna(0)
-).astype(int)
+    ).astype(int)
 
-# =========================
-# APLICAR PENALIDADES
-# =========================
-resultado_penalidad = df_salida.apply(calcular_penalidades, axis=1)
-df_salida = pd.concat([df_salida, resultado_penalidad], axis=1)
+   # =========================
+   # APLICAR PENALIDADES
+   # =========================
+    resultado_penalidad = df_salida.apply(calcular_penalidades, axis=1)
+    df_salida = pd.concat([df_salida, resultado_penalidad], axis=1)
 
-return df_salida
+    return df_salida
 
 def exportar_excel(df_resultado):
     output = BytesIO()
