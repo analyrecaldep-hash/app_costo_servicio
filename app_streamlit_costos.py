@@ -855,45 +855,6 @@ if archivo is not None:
         )
         st.success("Archivo procesado correctamente.")
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Registros", len(df_resultado))
-        c2.metric("Costo servicio total", f"{df_resultado['Costo_servicio'].sum():,.2f}")
-        c3.metric("Sobrecosto total espera", f"{df_resultado['sobrecosto_total_espera'].sum():,.2f}")
-        c4.metric("Penalidad total", f"{df_resultado['penalidad_total'].sum():,.2f}")
-
-        st.subheader("Vista previa")
-        st.dataframe(df_resultado.head(20), use_container_width=True)
-
-        st.subheader("Resumen por tipo de unidad")
-        resumen_tipo = df_resultado.groupby("tipo_unidad", dropna=False).agg(
-            {
-                "Costo_servicio": "sum",
-                "sobrecosto_total_espera": "sum",
-                 "penalidad_total": "sum",
-            }
-        ).reset_index()
-        resumen_tipo = agregar_fila_total(resumen_tipo, "tipo_unidad")
-        st.dataframe(formatear_resumen(resumen_tipo), use_container_width=True)
-
-        st.subheader("Resumen por sede")
-        resumen_sede = df_resultado.groupby("sede", dropna=False).agg(
-            {
-                "Costo_servicio": "sum",
-                "sobrecosto_total_espera": "sum",
-                "penalidad_total": "sum",
-            }
-        ).reset_index()
-        resumen_sede = agregar_fila_total(resumen_sede, "sede")
-        st.dataframe(formatear_resumen(resumen_sede), use_container_width=True)
-
-        excel_bytes = exportar_excel(df_resultado)
-        st.download_button(
-            "Descargar resultado",
-            data=excel_bytes,
-            file_name="resultado_tiempo_espera.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
     except Exception as e:
         st.error(f"Ocurrió un error al procesar el archivo: {e}")
 
