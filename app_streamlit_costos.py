@@ -686,7 +686,7 @@ def exportar_excel(df_resultado):
 # UI
 # =========================================================
 st.title("Analisis Operativo de Servicios de Ambulancia")
-st.caption("Sube el Excel del proveedor, calcula el costo por servicio y descarga el resultado.")
+st.caption("Análisis de costos, tiempos de espera y penalidades")
 
 with st.expander("Tarifario aplicado"):
     st.markdown("""
