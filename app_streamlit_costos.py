@@ -401,7 +401,82 @@ def segunda_validacion_tiempo_espera_destino(row, minutos):
                 return 0.0
 
     return minutos
+# =========================
+#  PENALIDADES
+# =========================
+def calcular_penalidades(row):
+    motivo = row.get("motivo_traslado", "")
+    sentido = row.get("sentido_traslado", "")
+    modalidad = row.get("modalidad", "")
 
+    llegada_origen = row.get("llegada_origen")
+    contacto = row.get("contacto_paciente_origen")
+    llegada_destino = row.get("llegada_destino")
+    dt_programacion = row.get("dt_programacion")
+    dt_registro = row.get("dt_registro")
+    costo_servicio = row.get("Costo_servicio", 0)
+
+    penalidad_origen = 0.0
+    penalidad_destino = 0.0
+    detalle = ""
+
+    def bloques(min):
+        if pd.isna(min) or min <= 0:
+            return 0
+        return int(math.ceil(min / 30))
+
+    # =========================
+    # CITA RETORNO
+    # =========================
+    if motivo == "CITA" and sentido == "RETORNO":
+        if pd.notna(contacto) and pd.notna(dt_programacion):
+            atraso = minutos_diff(dt_programacion, contacto)
+            if atraso < 0:
+                b = bloques(abs(atraso))
+                penalidad_origen = b * (costo_servicio / 3)
+                detalle = f"CITA RETORNO atraso {abs(atraso)} min"
+
+    # ===================================
+    # REFERENCIA IDA PROGRAMADA (DESTINO)
+    # ===================================
+    elif motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "PROGRAMADA":
+        if pd.notna(llegada_destino) and pd.notna(dt_programacion):
+            atraso = minutos_diff(dt_programacion, llegada_destino)
+            if atraso < 0:
+                b = bloques(abs(atraso))
+                penalidad_destino = b * (costo_servicio / 3)
+                detalle = f"REF IDA PROG atraso {abs(atraso)} min"
+
+    # =====================================
+    # REFERENCIA IDA NO PROGRAMADA (ORIGEN)
+    # =====================================
+    elif motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+        if pd.notna(llegada_origen) and pd.notna(dt_registro):
+            minutos = minutos_diff(dt_registro, llegada_origen)
+            if minutos > 30:
+                exceso = minutos - 30
+                b = bloques(exceso)
+                penalidad_origen = b * (costo_servicio / 3)
+                detalle = f"REF IDA NO PROG exceso {exceso} min"
+
+    # =========================
+    # EMERGENCIA / ALTA
+    # =========================
+    elif motivo in ["EMERGENCIA", "ALTA"] and sentido == "IDA":
+        if pd.notna(llegada_origen) and pd.notna(dt_registro):
+            minutos = minutos_diff(dt_registro, llegada_origen)
+            if minutos > 30:
+                exceso = minutos - 30
+                b = bloques(exceso)
+                penalidad_origen = b * (costo_servicio / 3)
+                detalle = f"{motivo} exceso {exceso} min"
+
+    return pd.Series({
+        "penalidad_origen": round(penalidad_origen, 2),
+        "penalidad_destino": round(penalidad_destino, 2),
+        "penalidad_total": round(penalidad_origen + penalidad_destino, 2),
+        "detalle_penalidad": detalle
+    })
 
 # =========================================================
 # PROCESAMIENTO PRINCIPAL
@@ -524,9 +599,13 @@ def procesar_archivo(df):
         df_salida["ocurrencias_origen"].fillna(0) +
         df_salida["ocurrencias_destino"].fillna(0)
     ).astype(int)
+# =========================
+# APLICAR PENALIDADES
+# =========================
+resultado_penalidad = df_salida.apply(calcular_penalidades, axis=1)
+df_salida = pd.concat([df_salida, resultado_penalidad], axis=1)
 
     return df_salida
-
 
 def exportar_excel(df_resultado):
     output = BytesIO()
