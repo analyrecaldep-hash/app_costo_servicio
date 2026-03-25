@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Análisis de Servicios de Ambulancia", layout="wide")
+st.set_page_config(page_title="Analisis Operativo de Servicios de Ambulancia", layout="wide")
 
 # =========================================================
 # CONFIGURACION
@@ -685,7 +685,7 @@ def exportar_excel(df_resultado):
 # =========================================================
 # UI
 # =========================================================
-st.title("Cálculo web de costo por servicio")
+st.title("Analisis Operativo de Servicios de Ambulancia")
 st.caption("Sube el Excel del proveedor, calcula el costo por servicio y descarga el resultado.")
 
 with st.expander("Tarifario aplicado"):
