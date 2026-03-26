@@ -724,23 +724,21 @@ if archivo is not None:
 
         f1, f2, f3, f4 = st.columns(4)
 
-f1, f2, f3, f4 = st.columns(4)
+        with f1:
+            estados = ["Todos"] + sorted(df_resultado["estado"].dropna().unique().tolist())
+            estado_sel = st.selectbox("Estado", estados)
 
-with f1:
-    estados = ["Todos"] + sorted(df_resultado["estado"].dropna().unique().tolist())
-    estado_sel = st.selectbox("Estado", estados)
+        with f2:
+            sedes = ["Todos"] + sorted(df_resultado["sede"].dropna().unique().tolist())
+            sede_sel = st.selectbox("Sede", sedes)
 
-with f2:
-    sedes = ["Todos"] + sorted(df_resultado["sede"].dropna().unique().tolist())
-    sede_sel = st.selectbox("Sede", sedes)
+        with f3:
+            motivos = ["Todos"] + sorted(df_resultado["motivo_traslado"].dropna().unique().tolist())
+            motivo_sel = st.selectbox("Motivo", motivos)
 
-with f3:
-    motivos = ["Todos"] + sorted(df_resultado["motivo_traslado"].dropna().unique().tolist())
-    motivo_sel = st.selectbox("Motivo", motivos)
-
-with f4:
-    tipos = ["Todos"] + sorted(df_resultado["tipo_unidad"].dropna().unique().tolist())
-    tipo_sel = st.selectbox("Tipo unidad", tipos)
+        with f4:
+            tipos = ["Todos"] + sorted(df_resultado["tipo_unidad"].dropna().unique().tolist())
+            tipo_sel = st.selectbox("Tipo unidad", tipos)
 
         b1, b2 = st.columns([2, 1])
 
