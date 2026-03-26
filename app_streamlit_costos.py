@@ -873,7 +873,7 @@ if archivo is not None:
 # =========================
         st.subheader("Resumen por centro asistencial de origen")
 
-         if "c_asistencial_origen" in df_filtrado.columns:
+        if "c_asistencial_origen" in df_filtrado.columns:
 
              resumen_origen = (
                  df_filtrado.groupby("c_asistencial_origen", dropna=False)
