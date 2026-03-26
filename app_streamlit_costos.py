@@ -469,11 +469,18 @@ def calcular_penalidades(row):
                     penalidad_destino = b * tarifa_penalidad
                     detalle = f"REF IDA PROG atraso {safe_round(atraso)} min"
 
-    # =========================
-    # REFERENCIA IDA NO PROGRAMADA (ORIGEN)
-    # =========================
-    elif motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
-        if pd.notna(llegada_origen) and pd.notna(dt_registro):
+# ========================= 
+# REFERENCIA IDA NO PROGRAMADA (ORIGEN)
+# =========================
+elif motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+    if pd.notna(llegada_origen) and pd.notna(dt_registro):
+
+        # 🚫 No penaliza si es tipo III
+        if tipo == "III":
+            penalidad_origen = 0
+            detalle = "REF IDA NO PROG - SIN PENALIDAD (TIPO III)"
+        
+        else:
             minutos = minutos_diff(dt_registro, llegada_origen)
             if pd.notna(minutos) and minutos > 30:
                 exceso = minutos - 30
