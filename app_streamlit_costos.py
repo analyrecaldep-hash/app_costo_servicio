@@ -454,9 +454,9 @@ def calcular_penalidades(row):
         if pd.notna(llegada_destino) and pd.notna(dt_programacion):
             atraso = minutos_diff(dt_programacion, llegada_destino)  # llegada - programacion
             if pd.notna(atraso) and atraso > 0:
-                llegada_origen = row.get("llegada_origen")
-                if pd.notna(llegada_origen):
-                    anticipo = minutos_diff(llegada_origen, dt_programacion)  # programacion - llegada_origen
+                llegada_origen_ref = row.get("llegada_origen")
+                if pd.notna(llegada_origen_ref):
+                    anticipo = minutos_diff(llegada_origen_ref, dt_programacion)  # programacion - llegada_origen
                     if pd.notna(anticipo) and anticipo >= 90:
                         penalidad_destino = 0.0
                         detalle = "REFERENCIA IDA PROG exonerada por anticipación >= 90 min"
@@ -469,24 +469,23 @@ def calcular_penalidades(row):
                     penalidad_destino = b * tarifa_penalidad
                     detalle = f"REF IDA PROG atraso {safe_round(atraso)} min"
 
-# ========================= 
-# REFERENCIA IDA NO PROGRAMADA (ORIGEN)
-# =========================
+    # =========================
+    # REFERENCIA IDA NO PROGRAMADA (ORIGEN)
+    # =========================
+    elif motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
+        if pd.notna(llegada_origen) and pd.notna(dt_registro):
 
-if motivo == "REFERENCIA" and sentido == "IDA" and modalidad == "NO PROGRAMADA":
-    if pd.notna(llegada_origen) and pd.notna(dt_registro):
-
-        # No penaliza si es tipo III
-        if tipo == "III":
-            penalidad_origen = 0
-            detalle = "REF IDA NO PROG - SIN PENALIDAD (TIPO III)"
-        else:
-            minutos = minutos_diff(dt_registro, llegada_origen)
-            if pd.notna(minutos) and minutos > 30:
-                exceso = minutos - 30
-                b = bloques(exceso, 30)
-                penalidad_origen = b * tarifa_penalidad
-                detalle = f"REF IDA NO PROG exceso {safe_round(exceso)} min"
+            # No penaliza si es tipo III
+            if normalizar_texto(tipo_unidad) == "TIPO III":
+                penalidad_origen = 0.0
+                detalle = "REF IDA NO PROG - SIN PENALIDAD (TIPO III)"
+            else:
+                minutos = minutos_diff(dt_registro, llegada_origen)
+                if pd.notna(minutos) and minutos > 30:
+                    exceso = minutos - 30
+                    b = bloques(exceso, 30)
+                    penalidad_origen = b * tarifa_penalidad
+                    detalle = f"REF IDA NO PROG exceso {safe_round(exceso)} min"
 
     # =========================
     # REFERENCIA RETORNO PROGRAMADA
@@ -863,4 +862,3 @@ if archivo is not None:
 
     except Exception as e:
         st.error(f"Ocurrió un error al procesar el archivo: {e}")
-
