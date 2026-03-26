@@ -871,7 +871,7 @@ if archivo is not None:
 # =========================
 # RESUMEN POR C_ASISTENCIAL_ORIGEN
 # =========================
-         st.subheader("Resumen por centro asistencial de origen")
+        st.subheader("Resumen por centro asistencial de origen")
 
          if "c_asistencial_origen" in df_filtrado.columns:
 
