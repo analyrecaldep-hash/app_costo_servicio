@@ -731,20 +731,40 @@ if archivo is not None:
         f1, f2, f3, f4 = st.columns(4)
 
         with f1:
-            estados = ["Todos"] + sorted(df_resultado["estado"].dropna().unique().tolist())
-            estado_sel = st.selectbox("Estado", estados)
+            estados = sorted(df_resultado["estado"].dropna().unique().tolist())
+            estado_sel = st.multiselect(
+                "Estado",
+                options=estados,
+                default=[],
+                placeholder="Todos"
+            )
 
         with f2:
-            sedes = ["Todos"] + sorted(df_resultado["sede"].dropna().unique().tolist())
-            sede_sel = st.selectbox("Sede", sedes)
+            sedes = sorted(df_resultado["sede"].dropna().unique().tolist())
+            sede_sel = st.multiselect(
+                "Sede",
+                options=sedes,
+                default=[],
+                placeholder="Todos"
+            )
 
         with f3:
-            motivos = ["Todos"] + sorted(df_resultado["motivo_traslado"].dropna().unique().tolist())
-            motivo_sel = st.selectbox("Motivo", motivos)
+            motivos = sorted(df_resultado["motivo_traslado"].dropna().unique().tolist())
+            motivo_sel = st.multiselect(
+                "Motivo",
+                options=motivos,
+                default=[],
+                placeholder="Todos"
+            )
 
         with f4:
-            tipos = ["Todos"] + sorted(df_resultado["tipo_unidad"].dropna().unique().tolist())
-            tipo_sel = st.selectbox("Tipo unidad", tipos)
+            tipos = sorted(df_resultado["tipo_unidad"].dropna().unique().tolist())
+            tipo_sel = st.multiselect(
+                "Tipo unidad",
+                options=tipos,
+                default=[],
+                placeholder="Todos"
+            )
 
         b1, b2 = st.columns([2, 1])
 
@@ -755,21 +775,21 @@ if archivo is not None:
             solo_penalidad = st.checkbox("Solo con penalidad")
 
         # =========================
-        # APLICAR FILTROS (SELECTBOX)
+        # APLICAR FILTROS (MULTISELECT)
         # =========================
         df_filtrado = df_resultado.copy()
 
-        if "estado" in df_filtrado.columns and estado_sel != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["estado"] == estado_sel]
+        if "estado" in df_filtrado.columns and estado_sel:
+            df_filtrado = df_filtrado[df_filtrado["estado"].isin(estado_sel)]
 
-        if "sede" in df_filtrado.columns and sede_sel != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["sede"] == sede_sel]
+        if "sede" in df_filtrado.columns and sede_sel:
+            df_filtrado = df_filtrado[df_filtrado["sede"].isin(sede_sel)]
 
-        if "motivo_traslado" in df_filtrado.columns and motivo_sel != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["motivo_traslado"] == motivo_sel]
+        if "motivo_traslado" in df_filtrado.columns and motivo_sel:
+            df_filtrado = df_filtrado[df_filtrado["motivo_traslado"].isin(motivo_sel)]
 
-        if "tipo_unidad" in df_filtrado.columns and tipo_sel != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["tipo_unidad"] == tipo_sel]
+        if "tipo_unidad" in df_filtrado.columns and tipo_sel:
+            df_filtrado = df_filtrado[df_filtrado["tipo_unidad"].isin(tipo_sel)]
 
         if buscar and "nro_solicitud" in df_filtrado.columns:
             df_filtrado = df_filtrado[
