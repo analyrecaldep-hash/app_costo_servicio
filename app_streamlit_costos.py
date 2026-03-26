@@ -902,6 +902,10 @@ if archivo is not None:
     resumen_origen = pd.concat([resumen_origen, total_row], ignore_index=True)
 
     st.dataframe(resumen_origen, use_container_width=True)
+
+    
+          except Exception as e:
+              st.error(f"Error: {e}")
         # =========================
         # DESCARGA
         # =========================
