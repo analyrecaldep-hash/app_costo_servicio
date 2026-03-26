@@ -867,37 +867,41 @@ if archivo is not None:
         ).reset_index()
         resumen_sede = agregar_fila_total(resumen_sede, "sede")
         st.dataframe(formatear_resumen(resumen_sede), use_container_width=True)
-# 👇 AQUÍ PEGAS EL NUEVO BLOQUE
 
-        st.subheader("Resumen por centro asistencial de origen")
+# =========================
+# RESUMEN POR C_ASISTENCIAL_ORIGEN
+# =========================
+         st.subheader("Resumen por centro asistencial de origen")
 
-       resumen_origen = (
-       df_filtrado.groupby("c_asistencial_origen", dropna=False)
-       .agg({
-        "c_asistencial_origen": "count",
-        "tiempo_excedente": "sum",
-        "tiempo_espera": "sum"
-        })
-        .rename(columns={
-        "c_asistencial_origen": "ocurrencias",
-        "tiempo_excedente": "tiempo_excedente_total",
-        "tiempo_espera": "tiempo_espera_total"
-         })
-        .reset_index()
-         )
+         if "c_asistencial_origen" in df_filtrado.columns:
 
-resumen_origen["c_asistencial_origen"] = resumen_origen["c_asistencial_origen"].fillna("SIN DATO")
+             resumen_origen = (
+                 df_filtrado.groupby("c_asistencial_origen", dropna=False)
+                 .agg({
+                     "c_asistencial_origen": "count",
+                     "tiempo_excedente": "sum",
+                     "tiempo_espera": "sum"
+                 })
+                 .rename(columns={
+                     "c_asistencial_origen": "ocurrencias",
+                     "tiempo_excedente": "tiempo_excedente_total",
+                     "tiempo_espera": "tiempo_espera_total"
+                 })
+                 .reset_index()
+          )
 
-total_row = pd.DataFrame([{
-    "c_asistencial_origen": "TOTAL",
-    "ocurrencias": resumen_origen["ocurrencias"].sum(),
-    "tiempo_excedente_total": resumen_origen["tiempo_excedente_total"].sum(),
-    "tiempo_espera_total": resumen_origen["tiempo_espera_total"].sum()
-}])
+    resumen_origen["c_asistencial_origen"] = resumen_origen["c_asistencial_origen"].fillna("SIN DATO")
 
-resumen_origen = pd.concat([resumen_origen, total_row], ignore_index=True)
+    total_row = pd.DataFrame([{
+        "c_asistencial_origen": "TOTAL",
+        "ocurrencias": resumen_origen["ocurrencias"].sum(),
+        "tiempo_excedente_total": resumen_origen["tiempo_excedente_total"].sum(),
+        "tiempo_espera_total": resumen_origen["tiempo_espera_total"].sum()
+    }])
 
-st.dataframe(resumen_origen, use_container_width=True)
+    resumen_origen = pd.concat([resumen_origen, total_row], ignore_index=True)
+
+    st.dataframe(resumen_origen, use_container_width=True)
         # =========================
         # DESCARGA
         # =========================
