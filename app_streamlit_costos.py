@@ -47,7 +47,7 @@ CENTROS_ASISTENCIALES_PERMITIDOS = [
     "Centro de Prevención de Riesgo del Trabajo (CEPRIT)",
     "Centro de Rehabilitación Profesional y Social (CERPS)",
     "Centro Nacional de Salud Renal (CNSR)",
-    "Hospital Alberto L. Barton Thompson",
+    "HOSPITAL ALBERTO LEONARDO BARTON THOMPSON",
     "Hospital de Emergencias Grau",
     "Hospital Domingo Angulo",
     "Hospital Edgardo Rebagliati Martins",
