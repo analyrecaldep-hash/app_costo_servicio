@@ -909,6 +909,7 @@ if archivo is not None:
 
                 # =========================
                 # =========================
+                # =========================
         # RESUMEN POR SEDE
         # =========================
         st.subheader("Resumen por sede")
@@ -923,30 +924,32 @@ if archivo is not None:
         st.dataframe(formatear_resumen(resumen_sede), use_container_width=True)
 
         # =========================
-        # RESUMEN POR C_ASISTENCIAL_DESTINO
+        # RESUMEN ORIGEN -> DESTINO
         # =========================
-        st.subheader("Resumen por centro asistencial de destino")
+        st.subheader("Resumen de servicios por centro asistencial origen y destino")
 
-        if "c_asistencial_destino" in df_filtrado.columns:
+        if "c_asistencial_origen" in df_filtrado.columns and "c_asistencial_destino" in df_filtrado.columns:
             centros_permitidos_set = {
                 normalizar_texto(nombre) for nombre in CENTROS_ASISTENCIALES_PERMITIDOS
             }
 
-            resumen_destino = (
-                df_filtrado.groupby("c_asistencial_destino", dropna=False)
+            resumen_ruta = (
+                df_filtrado.groupby(["c_asistencial_origen", "c_asistencial_destino"], dropna=False)
                 .agg(
-                    ocurrencias=("c_asistencial_destino", "count"),
-                    tiempo_excedente_total=("minutos_excedentes_destino", "sum"),
-                    tiempo_espera_total=("min_espera_destino", "sum"),
+                    ocurrencias_total=("c_asistencial_destino", "count"),
+                    tiempo_espera_destino_total=("min_espera_destino", "sum"),
+                    sobrecosto_total_espera=("sobrecosto_total_espera", "sum"),
                 )
                 .reset_index()
             )
 
-            resumen_destino["c_asistencial_destino"] = resumen_destino["c_asistencial_destino"].fillna("SIN DATO")
-            resumen_destino["c_asistencial_destino_normalizado"] = resumen_destino["c_asistencial_destino"].apply(normalizar_texto)
+            resumen_ruta["c_asistencial_origen"] = resumen_ruta["c_asistencial_origen"].fillna("SIN DATO")
+            resumen_ruta["c_asistencial_destino"] = resumen_ruta["c_asistencial_destino"].fillna("SIN DATO")
 
-            resumen_destino = resumen_destino[
-                resumen_destino["c_asistencial_destino_normalizado"].isin(centros_permitidos_set)
+            resumen_ruta["destino_normalizado"] = resumen_ruta["c_asistencial_destino"].apply(normalizar_texto)
+
+            resumen_ruta = resumen_ruta[
+                resumen_ruta["destino_normalizado"].isin(centros_permitidos_set)
             ].copy()
 
             orden_centros = {
@@ -954,13 +957,13 @@ if archivo is not None:
                 for idx, nombre in enumerate(CENTROS_ASISTENCIALES_PERMITIDOS)
             }
 
-            resumen_destino["orden"] = resumen_destino["c_asistencial_destino_normalizado"].map(orden_centros)
-            resumen_destino = resumen_destino.sort_values("orden").drop(
-                columns=["c_asistencial_destino_normalizado", "orden"]
-            )
+            resumen_ruta["orden"] = resumen_ruta["destino_normalizado"].map(orden_centros)
 
-            resumen_destino = agregar_fila_total(resumen_destino, "c_asistencial_destino")
-            st.dataframe(formatear_resumen(resumen_destino), use_container_width=True)
+            resumen_ruta = resumen_ruta.sort_values(
+                by=["orden", "c_asistencial_destino", "c_asistencial_origen"]
+            ).drop(columns=["destino_normalizado", "orden"])
+
+            st.dataframe(formatear_resumen(resumen_ruta), use_container_width=True)
 
         # =========================
         # DESCARGA
