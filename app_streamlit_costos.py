@@ -920,10 +920,6 @@ if archivo is not None:
         ).reset_index()
         resumen_sede = agregar_fila_total(resumen_sede, "sede")
         st.dataframe(formatear_resumen(resumen_sede), use_container_width=True)
-
-        # =========================
-        # RESUMEN POR C_ASISTENCIAL_DESTINO
-        # =========================
 # =========================
 # RESUMEN POR C_ASISTENCIAL_DESTINO
 # =========================
