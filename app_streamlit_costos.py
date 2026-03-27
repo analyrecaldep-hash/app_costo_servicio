@@ -900,44 +900,46 @@ if archivo is not None:
         ).reset_index()
         resumen_sede = agregar_fila_total(resumen_sede, "sede")
         st.dataframe(formatear_resumen(resumen_sede), use_container_width=True)
+# =========================
+# RESUMEN POR C_ASISTENCIAL_DESTINO
+# =========================
+st.subheader("Resumen por centro asistencial de destino")
 
-        # =========================
-        # RESUMEN POR C_ASISTENCIAL_ORIGEN
-        # =========================
-        st.subheader("Resumen por centro asistencial de origen")
+if "c_asistencial_destino" in df_filtrado.columns:
+    centros_permitidos_set = {
+        normalizar_texto(nombre) for nombre in CENTROS_ASISTENCIALES_PERMITIDOS
+    }
 
-        if "c_asistencial_origen" in df_filtrado.columns:
-            centros_permitidos_set = {
-                normalizar_texto(nombre) for nombre in CENTROS_ASISTENCIALES_PERMITIDOS
-            }
+    resumen_destino = (
+        df_filtrado.groupby("c_asistencial_destino", dropna=False)
+        .agg(
+            ocurrencias=("c_asistencial_destino", "count"),
+            tiempo_excedente_total=("minutos_excedentes_destino", "sum"),
+            tiempo_espera_total=("tiempo_espera_total", "sum"),
+        )
+        .reset_index()
+    )
 
-            resumen_origen = (
-                df_filtrado.groupby("c_asistencial_origen", dropna=False)
-                .agg(
-                    ocurrencias=("c_asistencial_origen", "count"),
-                    tiempo_excedente_total=("minutos_excedentes_origen", "sum"),
-                    tiempo_espera_total=("tiempo_espera_total", "sum"),
-                )
-                .reset_index()
-            )
+    resumen_destino["c_asistencial_destino"] = resumen_destino["c_asistencial_destino"].fillna("SIN DATO")
+    resumen_destino["c_asistencial_destino_normalizado"] = resumen_destino["c_asistencial_destino"].apply(normalizar_texto)
 
-            resumen_origen["c_asistencial_origen"] = resumen_origen["c_asistencial_origen"].fillna("SIN DATO")
-            resumen_origen["c_asistencial_origen_normalizado"] = resumen_origen["c_asistencial_origen"].apply(normalizar_texto)
+    resumen_destino = resumen_destino[
+        resumen_destino["c_asistencial_destino_normalizado"].isin(centros_permitidos_set)
+    ].copy()
 
-            resumen_origen = resumen_origen[
-                resumen_origen["c_asistencial_origen_normalizado"].isin(centros_permitidos_set)
-            ].copy()
+    orden_centros = {
+        normalizar_texto(nombre): idx
+        for idx, nombre in enumerate(CENTROS_ASISTENCIALES_PERMITIDOS)
+    }
 
-            orden_centros = {
-                normalizar_texto(nombre): idx
-                for idx, nombre in enumerate(CENTROS_ASISTENCIALES_PERMITIDOS)
-            }
+    resumen_destino["orden"] = resumen_destino["c_asistencial_destino_normalizado"].map(orden_centros)
+    resumen_destino = resumen_destino.sort_values("orden").drop(
+        columns=["c_asistencial_destino_normalizado", "orden"]
+    )
 
-            resumen_origen["orden"] = resumen_origen["c_asistencial_origen_normalizado"].map(orden_centros)
-            resumen_origen = resumen_origen.sort_values("orden").drop(columns=["c_asistencial_origen_normalizado", "orden"])
-
-            resumen_origen = agregar_fila_total(resumen_origen, "c_asistencial_origen")
-            st.dataframe(formatear_resumen(resumen_origen), use_container_width=True)
+    resumen_destino = agregar_fila_total(resumen_destino, "c_asistencial_destino")
+    st.dataframe(formatear_resumen(resumen_destino), use_container_width=True)
+     
 
         # =========================
         # DESCARGA
