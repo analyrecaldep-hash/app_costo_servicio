@@ -849,11 +849,12 @@ if archivo is not None:
         # =========================
         # KPIs
         # =========================
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Registros", f"{len(df_filtrado):,}")
         c2.metric("Costo servicio total", f"S/ {df_filtrado['Costo_servicio'].sum():,.2f}")
         c3.metric("Sobrecosto total espera", f"S/ {df_filtrado['sobrecosto_total_espera'].sum():,.2f}")
         c4.metric("Penalidad total", f"S/ {df_filtrado['penalidad_total'].sum():,.2f}")
+        c5.metric("Promedio total tiempo espera", f"{df_filtrado['tiempo_espera_total'].mean():,.2f} min")
 
         # =========================
         # TOP CASOS
