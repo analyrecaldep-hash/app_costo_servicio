@@ -43,31 +43,28 @@ TARIFA_PENALIDAD = {
 # CENTROS ASISTENCIALES PERMITIDOS
 # =========================================================
 CENTROS_ASISTENCIALES_PERMITIDOS = [
-    "Centro de Atención Integral en Diabetes e Hipertensión",
-    "Centro de Prevención de Riesgo del Trabajo (CEPRIT)",
-    "Centro de Rehabilitación Profesional y Social (CERPS)",
-    "Centro Nacional de Salud Renal (CNSR)",
-    "HOSPITAL ALBERTO LEONARDO BARTON THOMPSON",
-    "Hospital de Emergencias Grau",
-    "Hospital Domingo Angulo",
-    "Hospital Edgardo Rebagliati Martins",
-    "Hospital Guillermo Almenara Irigoyen",
-    "Hospital I Aurelio Díaz Ufano y Peral",
-    "Hospital I Carlos Alcántara Butterfield",
-    "Hospital II Ramón Castilla",
-    "Hospital III Emergencias Grau",
-    "Hospital III Suárez Angamos",
-    "Hospital Nacional Alberto Sabogal Sologuren",
-    "Hospital Octavio Mongrut Muñoz",
-    "Hospital Uldarico Rocca Fernández",
-    "Instituto Nacional Cardiovascular (INCOR)",
-    "Policlínico Chincha",
-    "Policlínico Francisco Pizarro",
-    "Policlínico Juan José Rodríguez Lazo",
-    "Policlínico Pablo Bermúdez",
-    "Policlínico Próceres",
+    "HOSPITAL DE EMERGENCIAS VILLA EL SALVADOR",
+    "Hospital de Ventanilla",
+    "Hospital María Auxiliadora (HMA)",
+    "Hospital Nacional Arzobispo Loayza (HNAL)",
+    "Hospital Nacional Cayetano Heredia (HNCH)",
+    "Hospital Nacional Daniel Alcides Carrión (HNDAC)",
+    "Hospital Nacional Dos de Mayo (HNDM)",
+    "Hospital Nacional Hipólito Unanue (HNHU)",
+    "Hospital Nacional Sergio E. Bernales (HNSEB)",
+    "Hospital Nacional Víctor Larco Herrera (HVLH)",
+    "Hospital San José del Callao",
+    "Hospital San Juan de Lurigancho (HSJL)",
+    "Hospital Santa Rosa",
+    "Instituto Nacional de Ciencias Neurológicas (INCN)",
+    "Instituto Nacional de Enfermedades Neoplásicas (INEN)",
+    "Instituto Nacional de Oftalmología (INO)",
+    "Instituto Nacional de Rehabilitación \"Dra. Adriana Rebaza Flores\" (INR)",
+    "Instituto Nacional de Salud del Niño - Breña (INSN-B)",
+    "Instituto Nacional de Salud del Niño - San Borja (INSN-SB)",
+    "Instituto Nacional de Salud Mental \"Honorio Delgado - Hideyo Noguchi\" (INSM)",
+    "Instituto Nacional Materno Perinatal (INMP)"
 ]
-
 # =========================================================
 # UTILIDADES
 # =========================================================
