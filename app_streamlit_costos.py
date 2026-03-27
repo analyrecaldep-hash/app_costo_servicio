@@ -45,10 +45,10 @@ TARIFA_PENALIDAD = {
 CENTROS_ASISTENCIALES_PERMITIDOS = [
     "HOSPITAL DE EMERGENCIAS VILLA EL SALVADOR",
     "Hospital de Ventanilla",
-    "Hospital María Auxiliadora (HMA)",
+    "HOSPITAL MARIA AUXILIADORA",
     "Hospital Nacional Arzobispo Loayza (HNAL)",
     "Hospital Nacional Cayetano Heredia (HNCH)",
-    "Hospital Nacional Daniel Alcides Carrión (HNDAC)",
+    "HOSPITAL NACIONAL DANIEL ALCIDES CARRION (HNDAC)",
     "Hospital Nacional Dos de Mayo (HNDM)",
     "Hospital Nacional Hipólito Unanue (HNHU)",
     "Hospital Nacional Sergio E. Bernales (HNSEB)",
