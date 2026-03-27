@@ -38,6 +38,36 @@ TARIFA_PENALIDAD = {
     "TIPO III": 460.00,
     "TIPO III NEONATAL": 920.00,
 }
+
+# =========================================================
+# CENTROS ASISTENCIALES PERMITIDOS
+# =========================================================
+CENTROS_ASISTENCIALES_PERMITIDOS = [
+    "Centro de Atención Integral en Diabetes e Hipertensión",
+    "Centro de Prevención de Riesgo del Trabajo (CEPRIT)",
+    "Centro de Rehabilitación Profesional y Social (CERPS)",
+    "Centro Nacional de Salud Renal (CNSR)",
+    "Hospital Alberto L. Barton Thompson",
+    "Hospital de Emergencias Grau",
+    "Hospital Domingo Angulo",
+    "Hospital Edgardo Rebagliati Martins",
+    "Hospital Guillermo Almenara Irigoyen",
+    "Hospital I Aurelio Díaz Ufano y Peral",
+    "Hospital I Carlos Alcántara Butterfield",
+    "Hospital II Ramón Castilla",
+    "Hospital III Emergencias Grau",
+    "Hospital III Suárez Angamos",
+    "Hospital Nacional Alberto Sabogal Sologuren",
+    "Hospital Octavio Mongrut Muñoz",
+    "Hospital Uldarico Rocca Fernández",
+    "Instituto Nacional Cardiovascular (INCOR)",
+    "Policlínico Chincha",
+    "Policlínico Francisco Pizarro",
+    "Policlínico Juan José Rodríguez Lazo",
+    "Policlínico Pablo Bermúdez",
+    "Policlínico Próceres",
+]
+
 # =========================================================
 # UTILIDADES
 # =========================================================
@@ -46,6 +76,7 @@ def normalizar_texto(valor):
         return ""
     valor = str(valor).strip().upper()
     valor = unicodedata.normalize("NFKD", valor).encode("ascii", "ignore").decode("utf-8")
+    valor = valor.replace("–", "-").replace("—", "-")
     valor = " ".join(valor.split())
     return valor
 
@@ -410,6 +441,7 @@ def segunda_validacion_tiempo_espera_destino(row, minutos):
                 return 0.0
 
     return minutos
+
 # =========================
 #  PENALIDADES
 # =========================
@@ -550,6 +582,7 @@ def calcular_penalidades(row):
         "penalidad_total": round(penalidad_origen + penalidad_destino, 2),
         "detalle_penalidad": detalle
     })
+
 # =========================================================
 # PROCESAMIENTO PRINCIPAL
 # =========================================================
@@ -874,6 +907,10 @@ if archivo is not None:
         st.subheader("Resumen por centro asistencial de origen")
 
         if "c_asistencial_origen" in df_filtrado.columns:
+            centros_permitidos_set = {
+                normalizar_texto(nombre) for nombre in CENTROS_ASISTENCIALES_PERMITIDOS
+            }
+
             resumen_origen = (
                 df_filtrado.groupby("c_asistencial_origen", dropna=False)
                 .agg(
@@ -885,6 +922,20 @@ if archivo is not None:
             )
 
             resumen_origen["c_asistencial_origen"] = resumen_origen["c_asistencial_origen"].fillna("SIN DATO")
+            resumen_origen["c_asistencial_origen_normalizado"] = resumen_origen["c_asistencial_origen"].apply(normalizar_texto)
+
+            resumen_origen = resumen_origen[
+                resumen_origen["c_asistencial_origen_normalizado"].isin(centros_permitidos_set)
+            ].copy()
+
+            orden_centros = {
+                normalizar_texto(nombre): idx
+                for idx, nombre in enumerate(CENTROS_ASISTENCIALES_PERMITIDOS)
+            }
+
+            resumen_origen["orden"] = resumen_origen["c_asistencial_origen_normalizado"].map(orden_centros)
+            resumen_origen = resumen_origen.sort_values("orden").drop(columns=["c_asistencial_origen_normalizado", "orden"])
+
             resumen_origen = agregar_fila_total(resumen_origen, "c_asistencial_origen")
             st.dataframe(formatear_resumen(resumen_origen), use_container_width=True)
 
